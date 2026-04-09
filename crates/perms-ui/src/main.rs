@@ -55,8 +55,8 @@ fn build_ui(app: &libadwaita::Application) {
     let tab_view = libadwaita::TabView::new();
     let tab_bar = libadwaita::TabBar::builder().view(&tab_view).build();
 
-    let dashboard = tab_view.append(&build_dashboard(state.clone()));
-    dashboard.set_title("Dashboard");
+    let dashboard_tab = tab_view.append(&build_dashboard(state.clone()));
+    dashboard_tab.set_title("Dashboard");
 
     let viewer_widget = viewer::build(state.clone());
     let viewer_tab = tab_view.append(&viewer_widget);
@@ -68,8 +68,7 @@ fn build_ui(app: &libadwaita::Application) {
     let settings = tab_view.append(&build_settings(state.clone()));
     settings.set_title("Settings");
 
-    // Start on Viewer since that's what Phase 2 is
-    tab_view.set_selected_page(&viewer_tab);
+    tab_view.set_selected_page(&dashboard_tab);
 
     // ── Layout ────────────────────────────────────────────────────────────────
     let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
