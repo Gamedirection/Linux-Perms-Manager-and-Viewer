@@ -1,10 +1,18 @@
 pub mod directory_view;
 pub mod user_view;
 
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
+
 use gtk4::prelude::*;
 use crate::app_state::SharedState;
 
-pub fn build(state: SharedState) -> gtk4::Widget {
+pub fn build(
+    state: SharedState,
+    on_manage: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>>,
+    focus_mgmt: Rc<RefCell<Option<Box<dyn Fn()>>>>,
+) -> gtk4::Widget {
     let stack = gtk4::Stack::builder()
         .transition_type(gtk4::StackTransitionType::SlideLeftRight)
         .vexpand(true)
@@ -12,7 +20,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .build();
 
     stack.add_titled(
-        &directory_view::build(state.clone()),
+        &directory_view::build(state.clone(), on_manage, focus_mgmt),
         Some("directory"),
         "Directory",
     );

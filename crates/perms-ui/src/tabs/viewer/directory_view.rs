@@ -11,8 +11,11 @@ use crate::components::build_detail_panel;
 use crate::model::PathObject;
 
 /// Build the directory browser view.
-/// Returns (root_widget, navigate_to_fn) so the parent can drive navigation.
-pub fn build(state: SharedState) -> gtk4::Widget {
+pub fn build(
+    state: SharedState,
+    on_manage: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>>,
+    focus_mgmt: Rc<RefCell<Option<Box<dyn Fn()>>>>,
+) -> gtk4::Widget {
     let current_path: Rc<RefCell<PathBuf>> = Rc::new(RefCell::new(
         dirs_home().unwrap_or_else(|| PathBuf::from("/")),
     ));
@@ -35,6 +38,13 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .tooltip_text("Parent directory")
         .build();
 
+    // "Edit in Management" — enabled only when an entry is selected.
+    let edit_in_mgmt_btn = gtk4::Button::builder()
+        .label("Edit in Management")
+        .tooltip_text("Open selected entry in the Management tab")
+        .sensitive(false)
+        .build();
+
     let path_bar = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
     path_bar.set_margin_top(8);
     path_bar.set_margin_bottom(4);
@@ -43,6 +53,10 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     path_bar.append(&up_button);
     path_bar.append(&path_entry);
     path_bar.append(&go_button);
+    path_bar.append(&edit_in_mgmt_btn);
+
+    // Tracks the path of the currently selected entry (shared with button handler).
+    let current_selection: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
 
     // ── List model ────────────────────────────────────────────────────────────
     let store = gio::ListStore::new::<PathObject>();
@@ -275,10 +289,15 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     {
         let detail_holder = detail_holder.clone();
         let state = state.clone();
+        let current_selection = current_selection.clone();
+        let edit_in_mgmt_btn = edit_in_mgmt_btn.clone();
         selection.connect_selection_changed(move |sel, _, _| {
             if let Some(obj) = sel.selected_item() {
                 if let Ok(path_obj) = obj.downcast::<PathObject>() {
                     if let Some(entry) = path_obj.entry() {
+                        *current_selection.borrow_mut() = Some(entry.path.clone());
+                        edit_in_mgmt_btn.set_sensitive(true);
+
                         let detail_holder = detail_holder.clone();
                         let state = state.clone();
                         gtk4::glib::idle_add_local_once(move || {
@@ -290,8 +309,36 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                             drop(guard);
                             detail_holder.append(&panel);
                         });
+                        return;
                     }
                 }
+            }
+            // Nothing selected.
+            *current_selection.borrow_mut() = None;
+            edit_in_mgmt_btn.set_sensitive(false);
+        });
+    }
+
+    // "Edit in Management" button click: load the selected path in Management
+    // (if it's a directory load it directly; if a file, load its parent).
+    {
+        let current_selection = current_selection.clone();
+        edit_in_mgmt_btn.connect_clicked(move |_| {
+            let path = match current_selection.borrow().clone() {
+                Some(p) => p,
+                None => return,
+            };
+            // For a directory show its own contents; for a file show its parent.
+            let dir = if path.is_dir() {
+                path
+            } else {
+                path.parent().map(|p| p.to_path_buf()).unwrap_or(path)
+            };
+            if let Some(cb) = on_manage.borrow().as_ref() {
+                cb(dir);
+            }
+            if let Some(cb) = focus_mgmt.borrow().as_ref() {
+                cb();
             }
         });
     }

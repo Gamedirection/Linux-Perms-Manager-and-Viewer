@@ -1,5 +1,16 @@
 /* perms — dark mode permission colours */
 
+/* Hide close buttons on all tabs — tabs are permanent.
+   AdwTabBar renders the × as a button inside each tab widget. */
+tabbar tab button.image-button {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .mode-badge {
     font-family: monospace;
     padding: 2px 6px;

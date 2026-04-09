@@ -3,6 +3,10 @@ mod components;
 mod model;
 mod tabs;
 
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
+
 use gtk4::prelude::*;
 use gtk4::CssProvider;
 use libadwaita::ColorScheme;
@@ -21,10 +25,8 @@ fn main() {
 }
 
 fn build_ui(app: &libadwaita::Application) {
-    // Request dark mode via AdwStyleManager (not the deprecated GTK setting)
     StyleManager::default().set_color_scheme(ColorScheme::PreferDark);
 
-    // Load CSS
     let provider = CssProvider::new();
     provider.load_from_string(include_str!("../resources/style.css"));
     gtk4::style_context_add_provider_for_display(
@@ -33,7 +35,6 @@ fn build_ui(app: &libadwaita::Application) {
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
-    // Shared state
     let state = new_shared();
 
     // ── Header bar ────────────────────────────────────────────────────────────
@@ -50,6 +51,12 @@ fn build_ui(app: &libadwaita::Application) {
     };
     header.pack_end(&privilege_label);
 
+    let reset_tabs_btn = gtk4::Button::builder()
+        .label("Reset Tabs")
+        .tooltip_text("Return all detached tabs to this window")
+        .build();
+    header.pack_start(&reset_tabs_btn);
+
     // ── Tab view ──────────────────────────────────────────────────────────────
     let tab_view = libadwaita::TabView::new();
     let tab_bar = libadwaita::TabBar::builder().view(&tab_view).build();
@@ -57,46 +64,102 @@ fn build_ui(app: &libadwaita::Application) {
     let dashboard_tab = tab_view.append(&build_dashboard(state.clone()));
     dashboard_tab.set_title("Dashboard");
 
-    let viewer_widget = viewer::build(state.clone());
+    // Late-bound callbacks: set after management is built, called by viewer button.
+    let on_manage_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> =
+        Rc::new(RefCell::new(None));
+    let focus_mgmt_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> =
+        Rc::new(RefCell::new(None));
+
+    let viewer_widget = viewer::build(state.clone(), on_manage_fn.clone(), focus_mgmt_fn.clone());
     let viewer_tab = tab_view.append(&viewer_widget);
     viewer_tab.set_title("Viewer");
 
-    let mgmt = tab_view.append(&build_management(state.clone()));
-    mgmt.set_title("Management");
+    let (mgmt_widget, mgmt_ctrl) = build_management(state.clone());
+    let mgmt_page = tab_view.append(&mgmt_widget);
+    mgmt_page.set_title("Management");
 
     let settings = tab_view.append(&build_settings(state.clone()));
     settings.set_title("Settings");
 
     tab_view.set_selected_page(&dashboard_tab);
 
-    // ── Prevent tab closing ───────────────────────────────────────────────────
-    // Mark every page non-closeable (hides the × button).
-    for page in [&dashboard_tab, &viewer_tab, &mgmt, &settings] {
-        page.set_property("closeable", false);
+    // Wire management navigate callback.
+    let mgmt_ctrl = Rc::new(mgmt_ctrl);
+    {
+        let mgmt_ctrl = mgmt_ctrl.clone();
+        *on_manage_fn.borrow_mut() = Some(Box::new(move |dir: PathBuf| {
+            mgmt_ctrl.navigate_to(dir);
+        }));
     }
 
-    // Safety net: if a close somehow gets requested, always deny it.
+    // ── Block tab closing ─────────────────────────────────────────────────────
+    // The × is hidden via CSS; this is the runtime safety net.
     tab_view.connect_close_page(|view, page| {
         view.close_page_finish(page, false);
         gtk4::glib::Propagation::Stop
     });
 
+    // ── Track detached windows ────────────────────────────────────────────────
+    // Each entry: (detached TabView, detached ApplicationWindow).
+    // Shared by the create-window handler, the close-request handlers, and Reset.
+    let detached: Rc<RefCell<Vec<(libadwaita::TabView, libadwaita::ApplicationWindow)>>> =
+        Rc::new(RefCell::new(Vec::new()));
+
+    // Wire focus-management callback now that detached list exists.
+    {
+        let tab_view_c = tab_view.clone();
+        let mgmt_page_c = mgmt_page.clone();
+        let detached_c = detached.clone();
+        *focus_mgmt_fn.borrow_mut() = Some(Box::new(move || {
+            // Check if mgmt_page is still in the main tab view.
+            let n = tab_view_c.n_pages();
+            let mut found = false;
+            for i in 0..n {
+                let page = tab_view_c.nth_page(i);
+                if page == mgmt_page_c {
+                    tab_view_c.set_selected_page(&page);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                // Search detached windows for the management page.
+                for (det_view, win) in detached_c.borrow().iter() {
+                    let m = det_view.n_pages();
+                    for j in 0..m {
+                        let page = det_view.nth_page(j);
+                        if page == mgmt_page_c {
+                            det_view.set_selected_page(&page);
+                            win.present();
+                            return;
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
     // ── Tab drag-out → new window ─────────────────────────────────────────────
-    // When the user drags a tab out of the window, libadwaita emits
-    // `create-window`. Returning a valid TabView moves the tab there.
-    // Returning NULL crashes; not connecting the signal disables drag-out.
     tab_view.connect_create_window({
         let app = app.clone();
-        move |_source_view| {
-            let new_tab_view = make_detached_tab_view();
+        let main_view = tab_view.clone();
+        let detached = detached.clone();
 
-            let new_tab_bar =
-                libadwaita::TabBar::builder().view(&new_tab_view).build();
+        move |_| {
+            let new_view = libadwaita::TabView::new();
+
+            // Prevent closing inside the detached window too.
+            new_view.connect_close_page(|v, p| {
+                v.close_page_finish(p, false);
+                gtk4::glib::Propagation::Stop
+            });
+
+            let new_tab_bar = libadwaita::TabBar::builder().view(&new_view).build();
             let new_header = libadwaita::HeaderBar::new();
 
             let inner = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
             inner.append(&new_tab_bar);
-            inner.append(&new_tab_view);
+            inner.append(&new_view);
 
             let tv = libadwaita::ToolbarView::new();
             tv.add_top_bar(&new_header);
@@ -109,9 +172,54 @@ fn build_ui(app: &libadwaita::Application) {
                 .default_height(700)
                 .content(&tv)
                 .build();
+
+            // When the floating window is closed, move its tabs back to main.
+            win.connect_close_request({
+                let new_view = new_view.clone();
+                let main_view = main_view.clone();
+                let detached = detached.clone();
+
+                move |_win| {
+                    // Move every remaining page back to the main window.
+                    while new_view.n_pages() > 0 {
+                        let page = new_view.nth_page(0);
+                        let pos = main_view.n_pages() as i32;
+                        new_view.transfer_page(&page, &main_view, pos);
+                    }
+                    // Remove this entry from the tracking list.
+                    detached.borrow_mut().retain(|(tv, _)| tv != &new_view);
+                    gtk4::glib::Propagation::Proceed
+                }
+            });
+
+            detached.borrow_mut().push((new_view.clone(), win.clone()));
             win.present();
 
-            Some(new_tab_view)
+            Some(new_view)
+        }
+    });
+
+    // ── Reset Tabs button ─────────────────────────────────────────────────────
+    reset_tabs_btn.connect_clicked({
+        let main_view = tab_view.clone();
+        let detached = detached.clone();
+
+        move |_| {
+            // Clone the list so we can mutate it via close_request handlers.
+            let snapshot: Vec<(libadwaita::TabView, libadwaita::ApplicationWindow)> =
+                detached.borrow().clone();
+
+            for (det_view, win) in &snapshot {
+                // Move all pages before closing so close_request finds nothing to do.
+                while det_view.n_pages() > 0 {
+                    let page = det_view.nth_page(0);
+                    let pos = main_view.n_pages() as i32;
+                    det_view.transfer_page(&page, &main_view, pos);
+                }
+                // close() triggers close_request, which will find 0 pages and
+                // clean up the entry from the tracking list.
+                win.close();
+            }
         }
     });
 
@@ -133,24 +241,4 @@ fn build_ui(app: &libadwaita::Application) {
         .build();
 
     window.present();
-}
-
-/// Build a bare TabView for a detached window.
-/// Also prevents tabs inside it from being closed.
-fn make_detached_tab_view() -> libadwaita::TabView {
-    let tv = libadwaita::TabView::new();
-    tv.connect_close_page(|view, page| {
-        view.close_page_finish(page, false);
-        gtk4::glib::Propagation::Stop
-    });
-    // Forward drag-out from detached windows too, so they never crash.
-    tv.connect_create_window(|_| {
-        // Nested drag-out: just block it (don't crash).
-        // Returning None disables the drag silently.
-        // We can't recursively create windows without an app ref here,
-        // so we return a throw-away view that the user will never see a window for.
-        // Instead: inhibit via close_page and produce nothing.
-        None
-    });
-    tv
 }

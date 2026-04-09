@@ -387,9 +387,21 @@ fn apply_mode_to_checks(mode: u32, checks: &[gtk4::CheckButton]) {
     }
 }
 
+// ── Management controller (cross-tab nav) ─────────────────────────────────────
+
+pub struct ManagementController {
+    pub navigate: Rc<dyn Fn(PathBuf)>,
+}
+
+impl ManagementController {
+    pub fn navigate_to(&self, dir: PathBuf) {
+        (self.navigate)(dir);
+    }
+}
+
 // ── Main build ────────────────────────────────────────────────────────────────
 
-pub fn build(state: SharedState) -> gtk4::Widget {
+pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
     let outer = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     outer.set_vexpand(true);
     outer.set_hexpand(true);
@@ -400,6 +412,11 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .hexpand(true)
         .placeholder_text("Directory to browse")
         .css_classes(["monospace"])
+        .build();
+
+    let up_btn = gtk4::Button::builder()
+        .icon_name("go-up-symbolic")
+        .tooltip_text("Parent directory")
         .build();
 
     let load_btn = gtk4::Button::builder()
@@ -420,6 +437,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     toolbar.set_margin_bottom(4);
     toolbar.set_margin_start(8);
     toolbar.set_margin_end(8);
+    toolbar.append(&up_btn);
     toolbar.append(&path_entry);
     toolbar.append(&load_btn);
     toolbar.append(&select_all_btn);
@@ -438,6 +456,32 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     // ── Left: file list ───────────────────────────────────────────────────────
     let list_store = gio::ListStore::new::<PathObject>();
     let multi_sel = gtk4::MultiSelection::new(Some(list_store.clone()));
+
+    // ── Shared directory loader ───────────────────────────────────────────────
+    // Used by the Load button, up button, double-click navigation, apply reload,
+    // and the ManagementController (called from Viewer's "Edit in Management").
+    let load_dir_fn: Rc<dyn Fn(PathBuf)> = {
+        let list_store = list_store.clone();
+        let path_entry = path_entry.clone();
+        Rc::new(move |dir: PathBuf| {
+            path_entry.set_text(&dir.to_string_lossy());
+            list_store.remove_all();
+            let rd = match std::fs::read_dir(&dir) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("management: read_dir {dir:?}: {e}");
+                    return;
+                }
+            };
+            let mut paths: Vec<PathBuf> = rd.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+            paths.sort();
+            for path in paths {
+                if let Ok(entry) = stat_entry(&path) {
+                    list_store.append(&PathObject::new(entry));
+                }
+            }
+        })
+    };
 
     let factory = gtk4::SignalListItemFactory::new();
     factory.connect_setup(|_, item| {
@@ -509,11 +553,27 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .show_separators(true)
         .build();
 
+    // Double-click (or Enter) on a directory navigates into it.
+    list_view.connect_activate({
+        let load_dir_fn = load_dir_fn.clone();
+        let list_store = list_store.clone();
+        move |_, pos| {
+            if let Some(obj) = list_store.item(pos).and_downcast::<PathObject>() {
+                if let Some(entry) = obj.entry() {
+                    if entry.is_dir() {
+                        load_dir_fn(entry.path.clone());
+                    }
+                }
+            }
+        }
+    });
+
     let list_scroll = gtk4::ScrolledWindow::builder()
         .vexpand(true)
         .hexpand(true)
         .child(&list_view)
         .build();
+
     paned.set_start_child(Some(&list_scroll));
 
     // ── Right: edit panel ─────────────────────────────────────────────────────
@@ -658,26 +718,22 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     // All selected PathEntry objects from the list
     let selected_entries: Rc<RefCell<Vec<PathEntry>>> = Rc::new(RefCell::new(Vec::new()));
 
-    // ── Load directory ────────────────────────────────────────────────────────
+    // ── Load / Up buttons ─────────────────────────────────────────────────────
     {
-        let list_store = list_store.clone();
+        let load_dir_fn = load_dir_fn.clone();
         let path_entry = path_entry.clone();
         load_btn.connect_clicked(move |_| {
-            list_store.remove_all();
             let root = PathBuf::from(path_entry.text().as_str());
-            let rd = match std::fs::read_dir(&root) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("management: read_dir {root:?}: {e}");
-                    return;
-                }
-            };
-            let mut paths: Vec<PathBuf> = rd.filter_map(|e| e.ok()).map(|e| e.path()).collect();
-            paths.sort();
-            for path in paths {
-                if let Ok(entry) = stat_entry(&path) {
-                    list_store.append(&PathObject::new(entry));
-                }
+            load_dir_fn(root);
+        });
+    }
+    {
+        let load_dir_fn = load_dir_fn.clone();
+        let path_entry = path_entry.clone();
+        up_btn.connect_clicked(move |_| {
+            let current = PathBuf::from(path_entry.text().as_str());
+            if let Some(parent) = current.parent() {
+                load_dir_fn(parent.to_path_buf());
             }
         });
     }
@@ -831,7 +887,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         let dryrun_switch = dryrun_switch.clone();
         let state = state.clone();
         let log_box = log_box.clone();
-        let list_store_reload = list_store.clone();
+        let load_dir_fn_reload = load_dir_fn.clone();
         let path_entry_reload = path_entry.clone();
 
         apply_btn.connect_clicked(move |btn| {
@@ -907,7 +963,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
             let entries_c = entries.clone();
             let log_box_c = log_box.clone();
             let state_c = state.clone();
-            let list_store_c = list_store_reload.clone();
+            let load_dir_fn_c = load_dir_fn_reload.clone();
             let path_entry_c = path_entry_reload.clone();
 
             let on_confirm = move || {
@@ -971,18 +1027,8 @@ pub fn build(state: SharedState) -> gtk4::Widget {
 
                 // Reload directory listing to reflect changes
                 if !dry_run {
-                    list_store_c.remove_all();
                     let root = PathBuf::from(path_entry_c.text().as_str());
-                    if let Ok(rd) = std::fs::read_dir(&root) {
-                        let mut paths: Vec<PathBuf> =
-                            rd.filter_map(|e| e.ok()).map(|e| e.path()).collect();
-                        paths.sort();
-                        for path in paths {
-                            if let Ok(entry) = stat_entry(&path) {
-                                list_store_c.append(&PathObject::new(entry));
-                            }
-                        }
-                    }
+                    load_dir_fn_c(root);
                 }
             };
 
@@ -990,5 +1036,6 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         });
     }
 
-    outer.upcast()
+    let controller = ManagementController { navigate: load_dir_fn };
+    (outer.upcast(), controller)
 }
