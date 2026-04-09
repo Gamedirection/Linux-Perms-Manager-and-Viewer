@@ -1,0 +1,16 @@
+[package]
+name = "perms-ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+perms-core = { path = "../perms-core" }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+gtk4 = { version = "0.9", features = ["v4_18"] }
+libadwaita = { version = "0.7", features = ["v1_6"] }

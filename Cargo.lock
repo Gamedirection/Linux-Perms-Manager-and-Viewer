@@ -840,6 +840,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "csv",
+ "libc",
  "nix",
  "rusqlite",
  "serde",
