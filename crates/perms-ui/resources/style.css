@@ -1,0 +1,66 @@
+/* perms — dark mode permission colours */
+
+.mode-badge {
+    font-family: monospace;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.mode-danger {
+    color: #ff4444;
+    background-color: alpha(#ff4444, 0.15);
+}
+
+.mode-warn {
+    color: #ffaa00;
+    background-color: alpha(#ffaa00, 0.12);
+}
+
+.mode-ok {
+    color: #88cc88;
+}
+
+.access-yes {
+    color: #44cc44;
+    font-size: 14px;
+}
+
+.access-no {
+    color: #555555;
+    font-size: 14px;
+}
+
+.sensitive-badge {
+    color: #ffaa00;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: alpha(#ffaa00, 0.12);
+}
+
+.privilege-root {
+    color: #ff4444;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background-color: alpha(#ff4444, 0.15);
+}
+
+.privilege-elevated {
+    color: #44cc44;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background-color: alpha(#44cc44, 0.15);
+}
+
+.privilege-limited {
+    color: #aaaaaa;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background-color: alpha(#aaaaaa, 0.10);
+}
+
+.error-label {
+    color: #ff6666;
+}

@@ -1,60 +1,77 @@
+mod app_state;
+mod components;
+mod model;
+mod tabs;
+
 use gtk4::prelude::*;
-use libadwaita::prelude::*;
+use gtk4::CssProvider;
+use libadwaita::ColorScheme;
+use libadwaita::StyleManager;
+
+use app_state::new_shared;
+use tabs::{build_dashboard, build_management, build_settings, viewer};
 
 fn main() {
-    // Ensure GTK and libadwaita are initialized together.
     let app = libadwaita::Application::builder()
         .application_id("org.perms.app")
         .build();
 
     app.connect_activate(build_ui);
-
     std::process::exit(app.run().into());
 }
 
 fn build_ui(app: &libadwaita::Application) {
-    let window = libadwaita::ApplicationWindow::builder()
-        .application(app)
-        .title("perms")
-        .default_width(1200)
-        .default_height(800)
-        .build();
+    // Request dark mode via AdwStyleManager (not the deprecated GTK setting)
+    StyleManager::default().set_color_scheme(ColorScheme::PreferDark);
 
-    // Top-level layout: header bar + tab view
+    // Load CSS
+    let provider = CssProvider::new();
+    provider.load_from_string(include_str!("../resources/style.css"));
+    gtk4::style_context_add_provider_for_display(
+        &gtk4::gdk::Display::default().unwrap(),
+        &provider,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+
+    // Shared state
+    let state = new_shared();
+
+    // ── Header bar ────────────────────────────────────────────────────────────
     let header = libadwaita::HeaderBar::new();
 
-    // Privilege status pill — placeholder label for Phase 0
-    let privilege_label = gtk4::Label::new(Some("Unprivileged"));
-    privilege_label.add_css_class("privilege-badge");
+    let privilege_label = {
+        let s = state.lock().unwrap();
+        let level = s.privilege;
+        drop(s);
+        let lbl = gtk4::Label::builder()
+            .label(level.label())
+            .css_classes([level.css_class()])
+            .build();
+        lbl
+    };
     header.pack_end(&privilege_label);
 
-    // Tab bar
+    // ── Tab view ──────────────────────────────────────────────────────────────
     let tab_view = libadwaita::TabView::new();
-    let tab_bar = libadwaita::TabBar::builder()
-        .view(&tab_view)
-        .build();
+    let tab_bar = libadwaita::TabBar::builder().view(&tab_view).build();
 
-    // Dashboard placeholder
-    let dashboard_page = make_placeholder_page("Dashboard", "Widgets load here in Phase 3.");
-    let dashboard_tab = tab_view.append(&dashboard_page);
-    dashboard_tab.set_title("Dashboard");
+    let dashboard = tab_view.append(&build_dashboard(state.clone()));
+    dashboard.set_title("Dashboard");
 
-    // Viewer placeholder
-    let viewer_page = make_placeholder_page("Viewer", "Directory and user inspection in Phase 2.");
-    let viewer_tab = tab_view.append(&viewer_page);
+    let viewer_widget = viewer::build(state.clone());
+    let viewer_tab = tab_view.append(&viewer_widget);
     viewer_tab.set_title("Viewer");
 
-    // Management placeholder
-    let management_page = make_placeholder_page("Management", "Permission editing in Phase 4.");
-    let management_tab = tab_view.append(&management_page);
-    management_tab.set_title("Management");
+    let mgmt = tab_view.append(&build_management(state.clone()));
+    mgmt.set_title("Management");
 
-    // Settings placeholder
-    let settings_page = make_placeholder_page("Settings", "Configuration in Phase 5.");
-    let settings_tab = tab_view.append(&settings_page);
-    settings_tab.set_title("Settings");
+    let settings = tab_view.append(&build_settings(state.clone()));
+    settings.set_title("Settings");
 
-    // Main layout
+    // Start on Viewer since that's what Phase 2 is
+    tab_view.set_selected_page(&viewer_tab);
+
+    // ── Layout ────────────────────────────────────────────────────────────────
     let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     content.append(&tab_bar);
     content.append(&tab_view);
@@ -63,21 +80,13 @@ fn build_ui(app: &libadwaita::Application) {
     toolbar_view.add_top_bar(&header);
     toolbar_view.set_content(Some(&content));
 
-    window.set_content(Some(&toolbar_view));
-    window.present();
-}
-
-fn make_placeholder_page(title: &str, subtitle: &str) -> gtk4::Box {
-    let label = gtk4::Label::builder()
-        .label(format!("<b>{title}</b>\n{subtitle}"))
-        .use_markup(true)
-        .justify(gtk4::Justification::Center)
+    let window = libadwaita::ApplicationWindow::builder()
+        .application(app)
+        .title("perms")
+        .default_width(1280)
+        .default_height(800)
+        .content(&toolbar_view)
         .build();
-    label.add_css_class("dim-label");
 
-    let container = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    container.set_valign(gtk4::Align::Center);
-    container.set_halign(gtk4::Align::Center);
-    container.append(&label);
-    container
+    window.present();
 }

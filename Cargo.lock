@@ -875,6 +875,7 @@ dependencies = [
  "anyhow",
  "gtk4",
  "libadwaita",
+ "nix",
  "perms-core",
  "serde",
  "tokio",

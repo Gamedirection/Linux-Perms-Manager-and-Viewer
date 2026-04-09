@@ -281,13 +281,13 @@ Note: helper binary must install to `/usr/libexec/perms-helper` with polkit poli
 - [x] Effective access evaluator + explanation chain (Phase 0)
 - [x] 9 MVP audit rules (world-writable dir/file, suid, sgid, orphaned uid/gid, writable system path, home readable, exec-writable)
 
-### Phase 2 — Viewer
-- [ ] Directory tree browser (GTK ColumnView)
-- [ ] Directory detail panel (mode, owner, group, ACL, who has access)
-- [ ] User selector + accessible paths list
-- [ ] Explanation chain renderer
-- [ ] Sensitive path labels + visual treatment
-- [ ] Limited mode indicators
+### Phase 2 — Viewer ✅
+- [x] Directory browser (ColumnView: name/mode/owner/group/flags columns, navigate by double-click/path bar/up button)
+- [x] Detail panel (ownership, mode badge, special bits, ACL entries, who-has-access with r/w/x dots + tooltip explanation chain)
+- [x] User view (user dropdown + scan root → lists accessible paths with effective access)
+- [x] Sensitive path labels shown in detail panel
+- [x] Privilege status badge in header (Unprivileged/Elevated/Root)
+- [x] CSS theme (permission colours: danger=red, warn=yellow, ok=green; access dots; sensitive badge)
 
 ### Phase 3 — Dashboard
 - [ ] Widget host (fixed grid, toggleable)
