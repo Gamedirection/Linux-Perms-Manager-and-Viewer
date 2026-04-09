@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.0.4 — Phase 4: Management Tab
+
+### Added
+- **Management tab** — full permission editing UI:
+  - Directory browser with multi-select (Ctrl+click / Shift+click via `gtk4::MultiSelection`)
+  - Mode editor: octal `Entry` + 9 `CheckButton`s in a color-coded Owner/Group/Other grid; bidirectional sync via `Rc<Cell<bool>>` guard
+  - Owner and Group name fields with username/group name → UID/GID resolution from `UserDb`
+  - Recursive toggle (applies changes to all children via `walkdir`)
+  - Dry-run toggle (computes diff without writing anything)
+  - Before/after diff preview (`PreferencesGroup` description updated with change summary)
+  - Apply button with two-tier confirmation:
+    - **Normal risk**: simple confirm dialog
+    - **High risk** (world-writable result, recursive >20 entries, or sensitive path): typed confirmation requiring `APPLY`
+  - Actual apply via `std::fs::set_permissions` (chmod) + `nix::unistd::chown`
+  - Error collection per path; errors shown in audit log strip
+  - Directory listing reloaded after apply to show updated permissions
+  - Audit log strip at bottom of tab shows results for the current session
+- **`perms-core::ipc`** — `ChangeRequest`, `ChangeResult`, `AuditEntry` protocol types (Serde JSON-serialisable, ready for Phase 5 polkit helper)
+- **JSON Lines audit log** — appended to `~/.local/share/perms/changes.log` on every apply (including dry-runs and errors)
+- Added `serde_json`, `chrono`, `walkdir` to `perms-ui` dependencies
+
+### Fixed
+- Used `std::fs::set_permissions` for chmod (nix 0.30 removed path-based `chmod`)
+
+---
+
 ## v0.0.3 — Phase 3: Dashboard
 
 ### Added

@@ -15,6 +15,18 @@ A Linux-native desktop application for visualizing, auditing, and managing files
 - **Detail panel** — colorized rwx permission badge (green/yellow/red for owner/group/other), clickable owner/group rows that open user and group detail popups, tooltip with full octal breakdown (e.g. `0755 = 0 special + 7 owner(r+w+x) + 5 group(r+x) + 5 other(r+x)`)
 - **User view** — select any system user and a directory to see all entries that user can access, with effective access evaluation
 
+### Management tab
+- File browser with **multi-select** (Ctrl+click / Shift+click)
+- **Mode editor** — octal entry and 9 rwx checkboxes (Owner/Group/Other rows, color-coded) with bidirectional sync
+- **Owner / Group** fields with username/group name resolution
+- **Recursive** toggle — apply changes to all children via walkdir
+- **Dry-run** mode — compute and preview all changes without writing anything
+- **Before/after preview** — shows old mode → new mode for all selected entries
+- **Risk assessment** — world-writable result, large recursive operations, or sensitive paths trigger typed-confirmation (`APPLY`) dialog
+- **Apply** — `std::fs::set_permissions` (chmod) + `nix::unistd::chown` with error collection
+- **Audit log** — JSON Lines appended to `~/.local/share/perms/changes.log`; recent entries shown in bottom strip
+- **IPC protocol types** (`perms-core::ipc`) — `ChangeRequest` / `ChangeResult` / `AuditEntry` ready for Phase 5 polkit helper integration
+
 ### Domain engine (perms-core)
 - Full POSIX effective access evaluation (root bypass → ACL named user → ACL group union + mask → standard mode bits)
 - Binary POSIX ACL parsing via `getxattr` (no external tools)
@@ -51,6 +63,6 @@ crates/
 | 1 | Done | Scanner pipeline, UserDb, ACL parser, audit engine |
 | 2 | Done | Viewer tab (directory browser + detail panel + user view) |
 | 3 | Done | Dashboard with 8 widgets, scan progress, scan cancel |
-| 4 | Planned | Management tab — chmod/chown editing, dry-run, polkit helper |
+| 4 | Done | Management tab — chmod/chown editing, dry-run, risk dialogs, audit log |
 | 5 | Planned | View-as-user mode, two-user comparison, CSV export, Settings |
 | 6 | Planned | Polish, packaging (.deb, .rpm, Flatpak, AUR) |
