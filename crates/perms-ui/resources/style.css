@@ -20,13 +20,24 @@
     color: #88cc88;
 }
 
+/* Access dot colours — r=blue, w=yellow, x=green, denied=dim */
 .access-yes {
+    color: #5599ff;
+    font-size: 14px;
+}
+
+.access-write {
+    color: #ffcc00;
+    font-size: 14px;
+}
+
+.access-exec {
     color: #44cc44;
     font-size: 14px;
 }
 
 .access-no {
-    color: #555555;
+    color: #444444;
     font-size: 14px;
 }
 
@@ -63,4 +74,21 @@
 
 .error-label {
     color: #ff6666;
+}
+
+/* Colourised rwx grouping: owner=green, group=yellow, other=red */
+.mode-owner {
+    color: #44cc44;
+}
+
+.mode-group {
+    color: #ffcc00;
+}
+
+.mode-other {
+    color: #ff6644;
+}
+
+.mode-separator {
+    color: #555555;
 }

@@ -7,6 +7,8 @@ use crate::app_state::SharedState;
 pub fn build(state: SharedState) -> gtk4::Widget {
     let stack = gtk4::Stack::builder()
         .transition_type(gtk4::StackTransitionType::SlideLeftRight)
+        .vexpand(true)
+        .hexpand(true)
         .build();
 
     stack.add_titled(
@@ -26,6 +28,8 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .build();
 
     let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    vbox.set_vexpand(true);
+    vbox.set_hexpand(true);
     vbox.append(&switcher);
     vbox.append(&stack);
 

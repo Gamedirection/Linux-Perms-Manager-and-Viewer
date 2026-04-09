@@ -129,6 +129,8 @@ pub fn build(state: SharedState) -> gtk4::Widget {
 
     // ── Detail panel placeholder ──────────────────────────────────────────────
     let detail_holder = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    detail_holder.set_vexpand(true);
+    detail_holder.set_hexpand(true);
     detail_holder.set_size_request(380, -1);
     let no_selection_label = gtk4::Label::builder()
         .label("Select an entry to inspect")
@@ -141,6 +143,8 @@ pub fn build(state: SharedState) -> gtk4::Widget {
 
     // ── Split view ────────────────────────────────────────────────────────────
     let split = gtk4::Paned::new(gtk4::Orientation::Horizontal);
+    split.set_vexpand(true);
+    split.set_hexpand(true);
     split.set_position(560);
 
     let left = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
@@ -263,7 +267,11 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         });
     }
 
-    // Single-click to show detail
+    // Single-click to show detail.
+    // We defer the rebuild to the next idle cycle so GTK can finish processing
+    // the current click event before we remove PreferencesGroup widgets (which
+    // contain a ListBox internally). Without the defer, removing the ListBox
+    // while a row's focus-grab is still pending triggers a CRITICAL assertion.
     {
         let detail_holder = detail_holder.clone();
         let state = state.clone();
@@ -271,13 +279,17 @@ pub fn build(state: SharedState) -> gtk4::Widget {
             if let Some(obj) = sel.selected_item() {
                 if let Ok(path_obj) = obj.downcast::<PathObject>() {
                     if let Some(entry) = path_obj.entry() {
-                        while let Some(child) = detail_holder.first_child() {
-                            detail_holder.remove(&child);
-                        }
-                        let userdb_ref = state.lock().unwrap();
-                        let panel = build_detail_panel(&entry, &userdb_ref.userdb);
-                        drop(userdb_ref);
-                        detail_holder.append(&panel);
+                        let detail_holder = detail_holder.clone();
+                        let state = state.clone();
+                        gtk4::glib::idle_add_local_once(move || {
+                            while let Some(child) = detail_holder.first_child() {
+                                detail_holder.remove(&child);
+                            }
+                            let guard = state.lock().unwrap();
+                            let panel = build_detail_panel(&entry, &guard.userdb);
+                            drop(guard);
+                            detail_holder.append(&panel);
+                        });
                     }
                 }
             }
