@@ -873,14 +873,17 @@ name = "perms-ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "gtk4",
  "libadwaita",
  "nix",
  "perms-core",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "walkdir",
 ]
 
 [[package]]
