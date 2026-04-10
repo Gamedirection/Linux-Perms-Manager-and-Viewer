@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=perms
+Comment=Linux Permissions Manager and Viewer
+Exec=perms
+Icon=org.perms.app
+Type=Application
+Categories=System;Settings;
+Terminal=false
+Keywords=permissions;chmod;chown;acl;security;

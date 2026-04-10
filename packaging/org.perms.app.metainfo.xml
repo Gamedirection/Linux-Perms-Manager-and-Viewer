@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.perms.app</id>
+  <name>perms</name>
+  <summary>Linux Permissions Manager and Viewer</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      A Linux-native desktop application for visualizing, auditing, and managing
+      filesystem permissions, built with Rust + GTK4/libadwaita.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Dashboard with 8 live audit widgets</li>
+      <li>Directory browser with detailed permission views</li>
+      <li>User view for effective access evaluation</li>
+      <li>Permission management with dry-run mode</li>
+      <li>Risk assessment for permission changes</li>
+      <li>Audit logging</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">org.perms.app.desktop</launchable>
+  <url type="homepage">https://github.com/Gamedirection/perms</url>
+  <url type="bugtracker">https://github.com/Gamedirection/perms/issues</url>
+  <developer_name>Gamedirection</developer_name>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.2.0" date="2026-04-10">
+      <description>
+        <p>Initial release</p>
+      </description>
+    </release>
+  </releases>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Dashboard view</caption>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>System</category>
+    <category>Settings</category>
+  </categories>
+  <keywords>
+    <keyword>permissions</keyword>
+    <keyword>chmod</keyword>
+    <keyword>chown</keyword>
+    <keyword>acl</keyword>
+    <keyword>security</keyword>
+    <keyword>filesystem</keyword>
+  </keywords>
+</component>

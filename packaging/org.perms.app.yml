@@ -1,0 +1,57 @@
+app-id: org.perms.app
+runtime: org.gnome.Platform
+app-version: '0.2.0'
+runtime-version: '48'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+command: perms
+
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --share=network
+  - --talk-name=org.freedesktop.PolicyKit1
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --filesystem=home
+  - --filesystem=/etc
+  - --filesystem=/var
+  - --filesystem=/usr
+  - --env=RUST_BACKTRACE=1
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+  env:
+    CARGO_HOME: /run/build/perms/cargo
+    npm_config_nodedir: /usr/lib/sdk/node22
+
+modules:
+  - name: vendor
+    buildsystem: simple
+    build-commands:
+      - echo "Vendor directory is part of sources"
+    sources:
+      - type: dir
+        path: vendor
+
+  - name: perms
+    buildsystem: simple
+    build-commands:
+      - cargo build --release --locked
+      - install -Dm755 target/release/perms-ui /app/bin/perms
+      - install -Dm755 target/release/perms-helper /app/libexec/perms-helper
+      - install -Dm644 ./packaging/org.perms.helper.policy /app/share/polkit-1/actions/org.perms.helper.policy
+      - install -Dm644 ./packaging/org.perms.app.desktop /app/share/applications/org.perms.app.desktop
+      - install -Dm644 ./packaging/org.perms.app.metainfo.xml /app/share/metainfo/org.perms.app.metainfo.xml
+      - install -Dm644 ./packaging/icon.png /app/share/icons/hicolor/256x256/apps/org.perms.app.png
+    sources:
+      - type: dir
+        path: .
+      - type: dir
+        path: .cargo
+      - type: dir
+        path: vendor
