@@ -1,3 +1,7 @@
+
+<img src="./icon/batch_Page 2.png" height="350" alt="Perms Logo">
+
+
 # perms — Linux Permissions Manager and Viewer
 
 A Linux-native desktop application for visualizing, auditing, and managing filesystem permissions, built with Rust + GTK4/libadwaita.
