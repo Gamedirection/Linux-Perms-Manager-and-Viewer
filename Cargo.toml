@@ -28,3 +28,4 @@ toml = "0.8"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 libc = "0.2"
+rust_xlsxwriter = "0"

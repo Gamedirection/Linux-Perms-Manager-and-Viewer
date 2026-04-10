@@ -1,3 +1,4 @@
+mod report_window;
 mod widgets;
 
 use std::cell::RefCell;
@@ -18,7 +19,6 @@ use crate::app_state::{ScanSummary, SharedState};
 use widgets::*;
 
 /// Messages from the background scan thread to the GTK main thread.
-/// Queued via Arc<Mutex<VecDeque>> and drained by a glib timer on the main thread.
 enum DashboardMsg {
     Progress(usize),
     Complete(ScanSummary),
@@ -26,14 +26,34 @@ enum DashboardMsg {
     Error(String),
 }
 
-pub fn build(state: SharedState) -> gtk4::Widget {
+pub fn build(
+    state: SharedState,
+    on_viewer: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>>,
+    focus_viewer: Rc<RefCell<Option<Box<dyn Fn()>>>>,
+) -> gtk4::Widget {
     let outer = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     outer.set_vexpand(true);
     outer.set_hexpand(true);
 
+    // ── Combined viewer navigation callback (navigate + focus) ────────────────
+    let viewer_nav: Rc<dyn Fn(PathBuf)> = {
+        let on_viewer = on_viewer.clone();
+        let focus_viewer = focus_viewer.clone();
+        Rc::new(move |path: PathBuf| {
+            if let Some(f) = on_viewer.borrow().as_ref() {
+                f(path);
+            }
+            if let Some(f) = focus_viewer.borrow().as_ref() {
+                f();
+            }
+        })
+    };
+
     // ── Scan toolbar ──────────────────────────────────────────────────────────
+    let default_roots = state.lock().unwrap().settings.default_roots.clone();
+
     let roots_entry = gtk4::Entry::builder()
-        .text("/home,/etc")
+        .text(&default_roots)
         .hexpand(true)
         .placeholder_text("Comma-separated scan roots")
         .css_classes(["monospace"])
@@ -50,6 +70,12 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .visible(false)
         .build();
 
+    let report_btn = gtk4::Button::builder()
+        .label("Export Report")
+        .tooltip_text("Open full report window with export options")
+        .sensitive(false)
+        .build();
+
     let toolbar = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
     toolbar.set_margin_top(8);
     toolbar.set_margin_bottom(4);
@@ -59,6 +85,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     toolbar.append(&roots_entry);
     toolbar.append(&scan_btn);
     toolbar.append(&cancel_btn);
+    toolbar.append(&report_btn);
     outer.append(&toolbar);
 
     // ── Progress bar ──────────────────────────────────────────────────────────
@@ -82,28 +109,61 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .build();
     outer.append(&status_label);
 
-    // ── Scrollable widget grid ────────────────────────────────────────────────
+    // ── Scrollable content ────────────────────────────────────────────────────
     let scroll = gtk4::ScrolledWindow::builder()
         .vexpand(true)
         .hexpand(true)
         .build();
 
-    let content = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
+    let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     content.set_margin_top(12);
     content.set_margin_bottom(12);
     content.set_margin_start(12);
     content.set_margin_end(12);
 
+    let grid_area = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
+    content.append(&grid_area);
+
+    let sep = gtk4::Separator::new(gtk4::Orientation::Horizontal);
+    sep.set_margin_top(16);
+    sep.set_margin_bottom(4);
+    content.append(&sep);
+
     scroll.set_child(Some(&content));
     outer.append(&scroll);
 
-    // Initial render — no scan data yet
-    {
-        let privilege = state.lock().unwrap().privilege;
-        populate_grid(&content, privilege, None);
-    }
+    // ── Approved list (persisted) ─────────────────────────────────────────────
+    let approved: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(load_approved()));
 
-    // ── Cancel sender (main-thread only) ──────────────────────────────────────
+    // ── Grid rebuild closure ──────────────────────────────────────────────────
+    let rebuild_grid = {
+        let grid_area = grid_area.clone();
+        let approved = approved.clone();
+        let state = state.clone();
+        let viewer_nav = viewer_nav.clone();
+        Rc::new(move || {
+            while let Some(child) = grid_area.first_child() {
+                grid_area.remove(&child);
+            }
+            let privilege = state.lock().unwrap().privilege;
+            let summary = state.lock().unwrap().scan_summary.clone();
+            let approved_list = approved.borrow().clone();
+            populate_grid(
+                &grid_area,
+                privilege,
+                summary.as_ref(),
+                &approved_list,
+                &viewer_nav,
+            );
+        })
+    };
+
+    rebuild_grid();
+
+    let approved_widget = approved_section(approved.clone(), rebuild_grid.clone());
+    content.append(&approved_widget);
+
+    // ── Cancel flag ───────────────────────────────────────────────────────────
     let cancel_flag: Rc<RefCell<Arc<AtomicBool>>> =
         Rc::new(RefCell::new(Arc::new(AtomicBool::new(false))));
 
@@ -111,6 +171,17 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         let cancel_flag = cancel_flag.clone();
         cancel_btn.connect_clicked(move |_| {
             cancel_flag.borrow().store(true, Ordering::SeqCst);
+        });
+    }
+
+    // ── Report button: open full report window ────────────────────────────────
+    {
+        let state = state.clone();
+        let viewer_nav = viewer_nav.clone();
+        report_btn.connect_clicked(move |_| {
+            if let Some(summary) = state.lock().unwrap().scan_summary.clone() {
+                report_window::show(summary, viewer_nav.clone());
+            }
         });
     }
 
@@ -122,8 +193,9 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         let status_label = status_label.clone();
         let cancel_btn = cancel_btn.clone();
         let scan_btn_ref = scan_btn.clone();
-        let content = content.clone();
         let roots_entry = roots_entry.clone();
+        let rebuild_grid = rebuild_grid.clone();
+        let report_btn = report_btn.clone();
 
         scan_btn.connect_clicked(move |scan_btn| {
             let roots: Vec<PathBuf> = roots_entry
@@ -138,12 +210,12 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                 return;
             }
 
-            // Fresh cancel flag for this run
+            report_btn.set_sensitive(false);
+
             let flag = Arc::new(AtomicBool::new(false));
             *cancel_flag.borrow_mut() = Arc::clone(&flag);
             let scan_cancel = Arc::clone(&flag);
 
-            // UI: busy state
             scan_btn.set_sensitive(false);
             cancel_btn.set_visible(true);
             progress_bar.set_visible(true);
@@ -151,25 +223,24 @@ pub fn build(state: SharedState) -> gtk4::Widget {
             progress_bar.set_text(Some("Scanning…"));
             status_label.set_label("Scanning…");
 
-            // Shared message queue: background thread → GTK timer
             let queue: Arc<Mutex<VecDeque<DashboardMsg>>> =
                 Arc::new(Mutex::new(VecDeque::new()));
             let queue_bg = Arc::clone(&queue);
             let queue_ui = Arc::clone(&queue);
 
-            // Clone what background threads need
             let userdb = state.lock().unwrap().userdb.clone();
             let roots_display: Vec<String> =
                 roots.iter().map(|p| p.to_string_lossy().to_string()).collect();
 
-            // ── Scanner thread ────────────────────────────────────────────────
+            // Read scan config from settings
+            let follow_symlinks = state.lock().unwrap().settings.follow_symlinks;
+            let skip_hidden = state.lock().unwrap().settings.skip_hidden;
+
             let (scan_tx, scan_rx) = std::sync::mpsc::channel::<ScanEvent>();
             let (cancel_tx, cancel_rx) = std::sync::mpsc::channel::<()>();
 
-            // Forward AtomicBool cancel into the mpsc cancel channel
             let cancel_fwd = Arc::clone(&scan_cancel);
             std::thread::spawn(move || {
-                // Poll the flag and send cancel signal when set
                 loop {
                     if cancel_fwd.load(Ordering::SeqCst) {
                         let _ = cancel_tx.send(());
@@ -181,15 +252,15 @@ pub fn build(state: SharedState) -> gtk4::Widget {
 
             let config = ScanConfig {
                 roots,
-                follow_symlinks: false,
-                skip_hidden: false,
+                follow_symlinks,
+                skip_hidden,
                 exclude: Vec::new(),
             };
             std::thread::spawn(move || {
                 let _ = run_scan(config, scan_tx, cancel_rx);
             });
 
-            // ── Accumulator thread ────────────────────────────────────────────
+            // ── Accumulator thread ────────────────────────────────────────
             std::thread::spawn(move || {
                 let audit = AuditEngine::default_ruleset();
                 let ctx = AuditContext { userdb: &userdb };
@@ -227,6 +298,11 @@ pub fn build(state: SharedState) -> gtk4::Widget {
 
                             if entry.has_acl() {
                                 summary.acl_count += 1;
+                                if summary.acl_paths.len() < 100 {
+                                    summary
+                                        .acl_paths
+                                        .push(entry.path.to_string_lossy().to_string());
+                                }
                             }
 
                             if entry.sensitive_label.is_some()
@@ -245,7 +321,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                                     Severity::Low => summary.findings_low += 1,
                                     Severity::Info => summary.findings_info += 1,
                                 }
-                                if summary.recent_findings.len() < 30 {
+                                if summary.recent_findings.len() < 50 {
                                     summary.recent_findings.push((
                                         finding.severity.to_string(),
                                         finding.rule_id.to_string(),
@@ -264,7 +340,6 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                             }
                         }
                         ScanEvent::Complete { .. } => {
-                            // Resolve top owners by entry count
                             let mut owners: Vec<(u32, usize)> =
                                 owner_counts.into_iter().collect();
                             owners.sort_by(|a, b| b.1.cmp(&a.1));
@@ -296,13 +371,14 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                 }
             });
 
-            // ── GTK timer: drain queue on main thread every 50 ms ─────────────
+            // ── GTK timer: drain queue every 50 ms ────────────────────────
             let state = state.clone();
-            let content = content.clone();
             let progress_bar = progress_bar.clone();
             let status_label = status_label.clone();
             let cancel_btn = cancel_btn.clone();
             let scan_btn = scan_btn_ref.clone();
+            let rebuild_grid = rebuild_grid.clone();
+            let report_btn = report_btn.clone();
 
             glib::timeout_add_local(Duration::from_millis(50), move || {
                 let mut q = queue_ui.lock().unwrap();
@@ -317,13 +393,8 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                             let total = summary.total_entries;
                             let roots_str = summary.scan_roots_used.join(", ");
 
-                            state.lock().unwrap().scan_summary = Some(summary.clone());
-
-                            while let Some(child) = content.first_child() {
-                                content.remove(&child);
-                            }
-                            let privilege = state.lock().unwrap().privilege;
-                            populate_grid(&content, privilege, Some(&summary));
+                            state.lock().unwrap().scan_summary = Some(summary);
+                            rebuild_grid();
 
                             status_label.set_label(&format!(
                                 "Scan complete — {total} entries in {roots_str}"
@@ -331,6 +402,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                             progress_bar.set_visible(false);
                             cancel_btn.set_visible(false);
                             scan_btn.set_sensitive(true);
+                            report_btn.set_sensitive(true);
 
                             return glib::ControlFlow::Break;
                         }
@@ -359,11 +431,12 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     outer.upcast()
 }
 
-/// Render the 2-column widget grid inside `content`.
 fn populate_grid(
-    content: &gtk4::Box,
+    container: &gtk4::Box,
     privilege: crate::app_state::PrivilegeLevel,
     summary: Option<&ScanSummary>,
+    approved: &[String],
+    viewer_nav: &Rc<dyn Fn(PathBuf)>,
 ) {
     let row = |w1: gtk4::Widget, w2: gtk4::Widget| -> gtk4::Box {
         let r = gtk4::Box::new(gtk4::Orientation::Horizontal, 12);
@@ -375,8 +448,20 @@ fn populate_grid(
         r
     };
 
-    content.append(&row(privilege_card(privilege), scan_coverage_card(summary)));
-    content.append(&row(risk_summary_card(summary), world_writable_card(summary)));
-    content.append(&row(acl_usage_card(summary), sensitive_dirs_card(summary)));
-    content.append(&row(top_owners_card(summary), recent_findings_card(summary)));
+    container.append(&row(
+        privilege_card(privilege),
+        scan_coverage_card(summary),
+    ));
+    container.append(&row(
+        risk_summary_card(summary, approved, viewer_nav.clone()),
+        world_writable_card(summary, approved, viewer_nav.clone()),
+    ));
+    container.append(&row(
+        acl_usage_card(summary, viewer_nav.clone()),
+        sensitive_dirs_card(summary),
+    ));
+    container.append(&row(
+        top_owners_card(summary),
+        recent_findings_card(summary, approved, viewer_nav.clone()),
+    ));
 }

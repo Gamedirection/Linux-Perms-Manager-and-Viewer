@@ -61,16 +61,25 @@ fn build_ui(app: &libadwaita::Application) {
     let tab_view = libadwaita::TabView::new();
     let tab_bar = libadwaita::TabBar::builder().view(&tab_view).build();
 
-    let dashboard_tab = tab_view.append(&build_dashboard(state.clone()));
-    dashboard_tab.set_title("Dashboard");
-
-    // Late-bound callbacks: set after management is built, called by viewer button.
+    // Late-bound callbacks for cross-tab navigation (management and viewer).
     let on_manage_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> =
         Rc::new(RefCell::new(None));
     let focus_mgmt_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> =
         Rc::new(RefCell::new(None));
+    let on_viewer_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> =
+        Rc::new(RefCell::new(None));
+    let focus_viewer_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> =
+        Rc::new(RefCell::new(None));
 
-    let viewer_widget = viewer::build(state.clone(), on_manage_fn.clone(), focus_mgmt_fn.clone());
+    let dashboard_tab = tab_view.append(&build_dashboard(
+        state.clone(),
+        on_viewer_fn.clone(),
+        focus_viewer_fn.clone(),
+    ));
+    dashboard_tab.set_title("Dashboard");
+
+    let (viewer_widget, viewer_navigate) =
+        viewer::build(state.clone(), on_manage_fn.clone(), focus_mgmt_fn.clone());
     let viewer_tab = tab_view.append(&viewer_widget);
     viewer_tab.set_title("Viewer");
 
@@ -129,6 +138,46 @@ fn build_ui(app: &libadwaita::Application) {
                     for j in 0..m {
                         let page = det_view.nth_page(j);
                         if page == mgmt_page_c {
+                            det_view.set_selected_page(&page);
+                            win.present();
+                            return;
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    // Wire viewer navigate callback.
+    {
+        let viewer_navigate = viewer_navigate.clone();
+        *on_viewer_fn.borrow_mut() = Some(Box::new(move |path: PathBuf| {
+            viewer_navigate(path);
+        }));
+    }
+
+    // Wire focus-viewer callback.
+    {
+        let tab_view_c = tab_view.clone();
+        let viewer_page_c = viewer_tab.clone();
+        let detached_c = detached.clone();
+        *focus_viewer_fn.borrow_mut() = Some(Box::new(move || {
+            let n = tab_view_c.n_pages();
+            let mut found = false;
+            for i in 0..n {
+                let page = tab_view_c.nth_page(i);
+                if page == viewer_page_c {
+                    tab_view_c.set_selected_page(&page);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                for (det_view, win) in detached_c.borrow().iter() {
+                    let m = det_view.n_pages();
+                    for j in 0..m {
+                        let page = det_view.nth_page(j);
+                        if page == viewer_page_c {
                             det_view.set_selected_page(&page);
                             win.present();
                             return;

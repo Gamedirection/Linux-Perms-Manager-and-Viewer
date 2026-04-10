@@ -8,22 +8,22 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use crate::app_state::SharedState;
 
+/// Build the Viewer tab.
+/// Returns `(widget, navigate_fn)` where `navigate_fn` switches to the Directory
+/// sub-view and loads the given path.
 pub fn build(
     state: SharedState,
     on_manage: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>>,
     focus_mgmt: Rc<RefCell<Option<Box<dyn Fn()>>>>,
-) -> gtk4::Widget {
+) -> (gtk4::Widget, Rc<dyn Fn(PathBuf)>) {
     let stack = gtk4::Stack::builder()
         .transition_type(gtk4::StackTransitionType::SlideLeftRight)
         .vexpand(true)
         .hexpand(true)
         .build();
 
-    stack.add_titled(
-        &directory_view::build(state.clone(), on_manage, focus_mgmt),
-        Some("directory"),
-        "Directory",
-    );
+    let (dir_widget, load_dir) = directory_view::build(state.clone(), on_manage, focus_mgmt);
+    stack.add_titled(&dir_widget, Some("directory"), "Directory");
     stack.add_titled(
         &user_view::build(state.clone()),
         Some("user"),
@@ -41,5 +41,14 @@ pub fn build(
     vbox.append(&switcher);
     vbox.append(&stack);
 
-    vbox.upcast()
+    // Navigate: switch to Directory sub-view and load the given path.
+    let navigate: Rc<dyn Fn(PathBuf)> = {
+        let stack = stack.clone();
+        Rc::new(move |path: PathBuf| {
+            stack.set_visible_child_name("directory");
+            load_dir(path);
+        })
+    };
+
+    (vbox.upcast(), navigate)
 }

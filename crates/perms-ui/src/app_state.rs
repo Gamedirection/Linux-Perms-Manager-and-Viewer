@@ -3,6 +3,65 @@ use std::sync::{Arc, Mutex};
 
 use perms_core::domain::UserDb;
 
+// ── Persisted settings ────────────────────────────────────────────────────────
+
+fn serde_default_roots() -> String {
+    "/home,/etc".to_string()
+}
+fn serde_default_max_findings() -> usize {
+    50
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Settings {
+    #[serde(default = "serde_default_roots")]
+    pub default_roots: String,
+    #[serde(default)]
+    pub follow_symlinks: bool,
+    #[serde(default)]
+    pub skip_hidden: bool,
+    #[serde(default = "serde_default_max_findings")]
+    pub max_findings: usize,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            default_roots: serde_default_roots(),
+            follow_symlinks: false,
+            skip_hidden: false,
+            max_findings: serde_default_max_findings(),
+        }
+    }
+}
+
+impl Settings {
+    pub fn load() -> Self {
+        let path = Self::file_path();
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            if let Ok(s) = serde_json::from_str::<Settings>(&text) {
+                return s;
+            }
+        }
+        Self::default()
+    }
+
+    pub fn save(&self) {
+        let path = Self::file_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        if let Ok(json) = serde_json::to_string_pretty(self) {
+            std::fs::write(&path, json).ok();
+        }
+    }
+
+    fn file_path() -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        PathBuf::from(home).join(".local/share/perms/settings.json")
+    }
+}
+
 /// Summary data collected during a filesystem scan, passed to dashboard widgets.
 #[derive(Default, Clone)]
 pub struct ScanSummary {
@@ -11,6 +70,8 @@ pub struct ScanSummary {
     pub world_writable: Vec<String>,
     /// Count of entries with extended POSIX ACLs.
     pub acl_count: usize,
+    /// Up to 100 paths with extended POSIX ACLs found during the scan.
+    pub acl_paths: Vec<String>,
     /// Up to 20 sensitive paths found (e.g. /etc, /root, /boot).
     pub sensitive_paths: Vec<String>,
     pub findings_critical: usize,
@@ -18,7 +79,7 @@ pub struct ScanSummary {
     pub findings_medium: usize,
     pub findings_low: usize,
     pub findings_info: usize,
-    /// Up to 30 most recent audit findings: (severity, rule_id, path).
+    /// Up to 50 most recent audit findings: (severity, rule_id, path).
     pub recent_findings: Vec<(String, String, String)>,
     /// Top 10 file owners by entry count: (username, count).
     pub top_owners: Vec<(String, usize)>,
@@ -71,17 +132,20 @@ pub struct AppState {
     pub scan_roots: Vec<PathBuf>,
     /// Populated after a dashboard scan completes.
     pub scan_summary: Option<ScanSummary>,
+    pub settings: Settings,
 }
 
 impl AppState {
     pub fn load() -> Self {
         let userdb = UserDb::load().unwrap_or_else(|_| UserDb::from_str("", ""));
         let privilege = PrivilegeLevel::detect();
+        let settings = Settings::load();
         Self {
             privilege,
             userdb,
             scan_roots: Vec::new(),
             scan_summary: None,
+            settings,
         }
     }
 }

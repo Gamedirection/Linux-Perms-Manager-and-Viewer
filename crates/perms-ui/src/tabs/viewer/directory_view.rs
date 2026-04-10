@@ -11,11 +11,12 @@ use crate::components::build_detail_panel;
 use crate::model::PathObject;
 
 /// Build the directory browser view.
+/// Returns `(widget, navigate_fn)` where `navigate_fn` loads a path into the browser.
 pub fn build(
     state: SharedState,
     on_manage: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>>,
     focus_mgmt: Rc<RefCell<Option<Box<dyn Fn()>>>>,
-) -> gtk4::Widget {
+) -> (gtk4::Widget, Rc<dyn Fn(PathBuf)>) {
     let current_path: Rc<RefCell<PathBuf>> = Rc::new(RefCell::new(
         dirs_home().unwrap_or_else(|| PathBuf::from("/")),
     ));
@@ -343,7 +344,8 @@ pub fn build(
         });
     }
 
-    split.upcast()
+    let dir_navigate: Rc<dyn Fn(PathBuf)> = load_dir;
+    (split.upcast(), dir_navigate)
 }
 
 fn dirs_home() -> Option<PathBuf> {
