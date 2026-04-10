@@ -1,2 +1,8 @@
 /target/
 /Cargo.lock
+appimage-build/
+AppDir/
+appimage-build/
+.flatpak-builder/
+*.AppImage
+*.flatpak

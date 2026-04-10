@@ -1,0 +1,116 @@
+version: 1
+
+script: |
+  rm -rf AppDir || true
+  mkdir -p AppDir/usr/bin
+  mkdir -p AppDir/usr/libexec
+  mkdir -p AppDir/usr/share/polkit-1/actions
+  mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+  mkdir -p AppDir/usr/share/pixmaps
+  
+  install -m755 target/release/perms-ui AppDir/usr/bin/perms
+  install -m755 target/release/perms-helper AppDir/usr/libexec/perms-helper
+  install -m644 packaging/org.perms.helper.policy AppDir/usr/share/polkit-1/actions/org.perms.helper.policy
+  
+  python3 << 'PYSCRIPT'
+  import struct, zlib
+
+  def create_png(size, color, filename):
+      def png_chunk(chunk_type, data):
+          chunk_len = len(data)
+          chunk = chunk_type + data
+          crc = zlib.crc32(chunk) & 0xffffffff
+          return struct.pack('>I', chunk_len) + chunk + struct.pack('>I', crc)
+      
+      signature = b'\x89PNG\r\n\x1a\n'
+      ihdr_data = struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)
+      ihdr = png_chunk(b'IHDR', ihdr_data)
+      
+      raw_data = b''
+      for y in range(size):
+          raw_data += b'\x00'
+          for x in range(size):
+              raw_data += bytes(color + [255])
+      
+      compressed = zlib.compress(raw_data)
+      idat = png_chunk(b'IDAT', compressed)
+      iend = png_chunk(b'IEND', b'')
+      
+      with open(filename, 'wb') as f:
+          f.write(signature + ihdr + idat + iend)
+
+  create_png(256, [74, 144, 217], 'AppDir/usr/share/icons/hicolor/256x256/apps/perms.png')
+  create_png(256, [74, 144, 217], 'AppDir/usr/share/pixmaps/perms.png')
+  print('Icons created')
+  PYSCRIPT
+  
+  cat > AppDir/perms.desktop << 'DESKTOP'
+  [Desktop Entry]
+  Name=perms
+  Comment=Linux Permissions Manager and Viewer
+  Exec=perms
+  Icon=perms
+  Type=Application
+  Categories=System;Settings;
+  Terminal=false
+  DESKTOP
+  
+  cat > AppDir/AppRun << 'APPRUN'
+  #!/bin/bash
+  SELF=$(readlink -f "$0")
+  HERE=${SELF%/*}
+  export PATH="${HERE}/usr/bin:${PATH}"
+  export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+  exec "${HERE}/usr/bin/perms" "$@"
+  APPRUN
+  chmod +x AppDir/AppRun
+
+AppDir:
+  path: ./AppDir
+  app_info:
+    id: org.perms.app
+    name: perms
+    icon: perms
+    version: 0.1.0
+    exec: usr/bin/perms
+    exec_args: $@
+  apt:
+    arch: amd64
+    allow_unauthenticated: true
+    sources:
+      - sourceline: 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse'
+      - sourceline: 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse'
+      - sourceline: 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse'
+    include:
+      - bash
+      - squashfs-tools
+      - libgtk-4-1
+      - libgtk-4-bin
+      - libadwaita-1-0
+      - libadwaita-1-dev
+      - adwaita-icon-theme
+      - librsvg2-common
+      - libgdk-pixbuf-2.0-0
+      - libcairo2
+      - libsoup-3.0-0
+      - libpango-1.0-0
+      - libgirepository1.0-dev
+      - perl
+      - python3
+    exclude:
+      - humanity-icon-theme
+      - hicolor-icon-theme
+  files:
+    exclude:
+      - usr/share/doc/*
+      - usr/share/man/*
+  runtime:
+    env:
+      GTK_PATH: $APPDIR/usr/lib/x86_64-linux-gnu/gtk-4.0
+      ADWAITA_PATH: $APPDIR/usr/lib/x86_64-linux-gnu/adwaita-1
+      GDK_PIXBUF_MODULE_FILE: $APPDIR/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders.cache
+
+AppImage:
+  arch: x86_64
+  update-information: None
+  sign-key: None
