@@ -36,7 +36,9 @@ pub fn save_approved(list: &[String]) {
 // ── Shared row helpers ────────────────────────────────────────────────────────
 
 fn escape(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn info_row(title: &str, value: &str) -> libadwaita::ActionRow {
@@ -258,7 +260,11 @@ pub fn scan_coverage_card(summary: Option<&ScanSummary>) -> gtk4::Widget {
         return group.upcast();
     };
 
-    group.add(&count_row("Entries Scanned", s.total_entries, "severity-info"));
+    group.add(&count_row(
+        "Entries Scanned",
+        s.total_entries,
+        "severity-info",
+    ));
 
     for root in &s.scan_roots_used {
         group.add(&path_row(root));
@@ -296,8 +302,11 @@ pub fn risk_summary_card(
     group.add(&overall_row);
 
     // ── Per-severity rows (expandable for Critical/High/Medium) ───────────────
-    let total_findings =
-        s.findings_critical + s.findings_high + s.findings_medium + s.findings_low + s.findings_info;
+    let total_findings = s.findings_critical
+        + s.findings_high
+        + s.findings_medium
+        + s.findings_low
+        + s.findings_info;
 
     if total_findings == 0 {
         group.add(&placeholder_row("No findings. System looks clean. ✓"));
@@ -689,7 +698,11 @@ pub fn recent_findings_card(
         }
 
         let sev_css = severity_css(severity);
-        let badge_label = if is_approved { "approved" } else { severity.as_str() };
+        let badge_label = if is_approved {
+            "approved"
+        } else {
+            severity.as_str()
+        };
         let badge_css = if is_approved { "mode-ok" } else { sev_css };
         let badge = gtk4::Label::builder()
             .label(badge_label)
@@ -894,9 +907,7 @@ pub fn approved_section(
             add_bar.set_margin_top(8);
 
             let add_entry = gtk4::Entry::builder()
-                .placeholder_text(
-                    "Path to approve (e.g. /tmp, /var/spool/cron, /run/user/1000)…",
-                )
+                .placeholder_text("Path to approve (e.g. /tmp, /var/spool/cron, /run/user/1000)…")
                 .hexpand(true)
                 .css_classes(["monospace"])
                 .build();

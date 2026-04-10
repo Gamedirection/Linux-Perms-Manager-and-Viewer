@@ -1,5 +1,3 @@
-/* perms — dark mode permission colours */
-
 /* Hide close buttons on all tabs — tabs are permanent.
    AdwTabBar renders the × as a button inside each tab widget. */
 tabbar tab button.image-button {
@@ -18,113 +16,113 @@ tabbar tab button.image-button {
 }
 
 .mode-danger {
-    color: #ff4444;
-    background-color: alpha(#ff4444, 0.15);
+    color: @perms_danger;
+    background-color: alpha(@perms_danger, 0.15);
 }
 
 .mode-warn {
-    color: #ffaa00;
-    background-color: alpha(#ffaa00, 0.12);
+    color: @perms_warning;
+    background-color: alpha(@perms_warning, 0.12);
 }
 
 .mode-ok {
-    color: #88cc88;
+    color: @perms_success;
 }
 
 /* Access dot colours — r=blue, w=yellow, x=green, denied=dim */
 .access-yes {
-    color: #5599ff;
+    color: @perms_accent;
     font-size: 14px;
 }
 
 .access-write {
-    color: #ffcc00;
+    color: @perms_warning;
     font-size: 14px;
 }
 
 .access-exec {
-    color: #44cc44;
+    color: @perms_success;
     font-size: 14px;
 }
 
 .access-no {
-    color: #444444;
+    color: alpha(@perms_neutral, 0.45);
     font-size: 14px;
 }
 
 .sensitive-badge {
-    color: #ffaa00;
+    color: @perms_warning;
     font-weight: bold;
     padding: 2px 6px;
     border-radius: 4px;
-    background-color: alpha(#ffaa00, 0.12);
+    background-color: alpha(@perms_warning, 0.12);
 }
 
 .privilege-root {
-    color: #ff4444;
+    color: @perms_danger;
     font-weight: bold;
     padding: 2px 8px;
     border-radius: 99px;
-    background-color: alpha(#ff4444, 0.15);
+    background-color: alpha(@perms_danger, 0.15);
 }
 
 .privilege-elevated {
-    color: #44cc44;
+    color: @perms_success;
     font-weight: bold;
     padding: 2px 8px;
     border-radius: 99px;
-    background-color: alpha(#44cc44, 0.15);
+    background-color: alpha(@perms_success, 0.15);
 }
 
 .privilege-limited {
-    color: #aaaaaa;
+    color: @perms_neutral;
     padding: 2px 8px;
     border-radius: 99px;
-    background-color: alpha(#aaaaaa, 0.10);
+    background-color: alpha(@perms_neutral, 0.10);
 }
 
 .error-label {
-    color: #ff6666;
+    color: @perms_danger;
 }
 
 /* Colourised rwx grouping: owner=green, group=yellow, other=red */
 .mode-owner {
-    color: #44cc44;
+    color: @perms_success;
 }
 
 .mode-group {
-    color: #ffcc00;
+    color: @perms_warning;
 }
 
 .mode-other {
-    color: #ff6644;
+    color: @perms_danger;
 }
 
 .mode-separator {
-    color: #555555;
+    color: alpha(@perms_neutral, 0.60);
 }
 
 /* Dashboard severity classes */
 .severity-critical {
-    color: #ff4444;
+    color: @perms_danger;
     font-weight: bold;
 }
 
 .severity-high {
-    color: #ff8800;
+    color: @perms_warning;
     font-weight: bold;
 }
 
 .severity-medium {
-    color: #ffcc00;
+    color: @perms_warning;
 }
 
 .severity-low {
-    color: #5599ff;
+    color: @perms_accent;
 }
 
 .severity-info {
-    color: #aaaaaa;
+    color: @perms_neutral;
 }
 
 /* Dashboard metric count suffix label */

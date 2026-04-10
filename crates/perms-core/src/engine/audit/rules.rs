@@ -22,9 +22,15 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
 pub struct WorldWritableDir;
 
 impl AuditRule for WorldWritableDir {
-    fn id(&self) -> &'static str { "world-writable-dir" }
-    fn name(&self) -> &'static str { "World-Writable Directory" }
-    fn severity(&self) -> Severity { Severity::Critical }
+    fn id(&self) -> &'static str {
+        "world-writable-dir"
+    }
+    fn name(&self) -> &'static str {
+        "World-Writable Directory"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Critical
+    }
 
     fn check(&self, entry: &PathEntry, _ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if entry.entry_type != EntryType::Directory {
@@ -34,7 +40,11 @@ impl AuditRule for WorldWritableDir {
             return None;
         }
         // Sticky bit mitigates risk (e.g. /tmp) — downgrade to High
-        let severity = if entry.special_bits.sticky { Severity::High } else { Severity::Critical };
+        let severity = if entry.special_bits.sticky {
+            Severity::High
+        } else {
+            Severity::Critical
+        };
         Some(AuditFinding {
             rule_id: self.id(),
             severity,
@@ -42,7 +52,11 @@ impl AuditRule for WorldWritableDir {
             description: format!(
                 "Directory is world-writable (mode {}{})",
                 entry.mode.to_octal(),
-                if entry.special_bits.sticky { ", sticky bit set" } else { "" }
+                if entry.special_bits.sticky {
+                    ", sticky bit set"
+                } else {
+                    ""
+                }
             ),
             recommendation: "Remove world-write permission unless intentional (e.g. /tmp). \
                 If shared scratch space, ensure sticky bit is set."
@@ -56,9 +70,15 @@ impl AuditRule for WorldWritableDir {
 pub struct WorldWritableFile;
 
 impl AuditRule for WorldWritableFile {
-    fn id(&self) -> &'static str { "world-writable-file" }
-    fn name(&self) -> &'static str { "World-Writable File" }
-    fn severity(&self) -> Severity { Severity::High }
+    fn id(&self) -> &'static str {
+        "world-writable-file"
+    }
+    fn name(&self) -> &'static str {
+        "World-Writable File"
+    }
+    fn severity(&self) -> Severity {
+        Severity::High
+    }
 
     fn check(&self, entry: &PathEntry, _ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if entry.entry_type != EntryType::File {
@@ -71,14 +91,10 @@ impl AuditRule for WorldWritableFile {
             rule_id: self.id(),
             severity: self.severity(),
             path: entry.path.clone(),
-            description: format!(
-                "File is world-writable (mode {})",
-                entry.mode.to_octal()
-            ),
-            recommendation:
-                "Remove world-write permission. Files writable by all users are a \
+            description: format!("File is world-writable (mode {})", entry.mode.to_octal()),
+            recommendation: "Remove world-write permission. Files writable by all users are a \
                 common vector for privilege escalation or data tampering."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -105,9 +121,15 @@ const KNOWN_SUID: &[&str] = &[
 pub struct UnexpectedSuid;
 
 impl AuditRule for UnexpectedSuid {
-    fn id(&self) -> &'static str { "suid-unexpected" }
-    fn name(&self) -> &'static str { "Unexpected SUID Binary" }
-    fn severity(&self) -> Severity { Severity::High }
+    fn id(&self) -> &'static str {
+        "suid-unexpected"
+    }
+    fn name(&self) -> &'static str {
+        "Unexpected SUID Binary"
+    }
+    fn severity(&self) -> Severity {
+        Severity::High
+    }
 
     fn check(&self, entry: &PathEntry, _ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if !entry.special_bits.setuid {
@@ -125,11 +147,10 @@ impl AuditRule for UnexpectedSuid {
                 "Unexpected SUID binary (mode {}): not in known-safe allowlist",
                 entry.mode.to_octal()
             ),
-            recommendation:
-                "Verify this SUID binary is intentional. Remove the setuid bit if \
+            recommendation: "Verify this SUID binary is intentional. Remove the setuid bit if \
                 the elevated execution is not required. SUID binaries run as the \
                 file owner (often root) regardless of who executes them."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -149,9 +170,15 @@ const KNOWN_SGID: &[&str] = &[
 pub struct UnexpectedSgid;
 
 impl AuditRule for UnexpectedSgid {
-    fn id(&self) -> &'static str { "sgid-unexpected" }
-    fn name(&self) -> &'static str { "Unexpected SGID Binary or Directory" }
-    fn severity(&self) -> Severity { Severity::Medium }
+    fn id(&self) -> &'static str {
+        "sgid-unexpected"
+    }
+    fn name(&self) -> &'static str {
+        "Unexpected SGID Binary or Directory"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Medium
+    }
 
     fn check(&self, entry: &PathEntry, _ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if !entry.special_bits.setgid {
@@ -174,10 +201,9 @@ impl AuditRule for UnexpectedSgid {
                 "Unexpected SGID file (mode {}): not in known-safe allowlist",
                 entry.mode.to_octal()
             ),
-            recommendation:
-                "Verify this SGID binary is intentional. Remove the setgid bit \
+            recommendation: "Verify this SGID binary is intentional. Remove the setgid bit \
                 if group-elevated execution is not required."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -187,9 +213,15 @@ impl AuditRule for UnexpectedSgid {
 pub struct OrphanedUid;
 
 impl AuditRule for OrphanedUid {
-    fn id(&self) -> &'static str { "orphaned-uid" }
-    fn name(&self) -> &'static str { "Orphaned UID Ownership" }
-    fn severity(&self) -> Severity { Severity::Medium }
+    fn id(&self) -> &'static str {
+        "orphaned-uid"
+    }
+    fn name(&self) -> &'static str {
+        "Orphaned UID Ownership"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Medium
+    }
 
     fn check(&self, entry: &PathEntry, ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if ctx.userdb.uid_known(entry.owner_uid) {
@@ -203,11 +235,10 @@ impl AuditRule for OrphanedUid {
                 "File owned by UID {} which has no corresponding /etc/passwd entry",
                 entry.owner_uid
             ),
-            recommendation:
-                "This file may be left over from a deleted user account. \
+            recommendation: "This file may be left over from a deleted user account. \
                 Assign ownership to an active account or remove the file \
                 if it is no longer needed."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -217,9 +248,15 @@ impl AuditRule for OrphanedUid {
 pub struct OrphanedGid;
 
 impl AuditRule for OrphanedGid {
-    fn id(&self) -> &'static str { "orphaned-gid" }
-    fn name(&self) -> &'static str { "Orphaned GID Ownership" }
-    fn severity(&self) -> Severity { Severity::Medium }
+    fn id(&self) -> &'static str {
+        "orphaned-gid"
+    }
+    fn name(&self) -> &'static str {
+        "Orphaned GID Ownership"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Medium
+    }
 
     fn check(&self, entry: &PathEntry, ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if ctx.userdb.gid_known(entry.owner_gid) {
@@ -233,10 +270,9 @@ impl AuditRule for OrphanedGid {
                 "File owned by GID {} which has no corresponding /etc/group entry",
                 entry.owner_gid
             ),
-            recommendation:
-                "This file may be left over from a deleted group. \
+            recommendation: "This file may be left over from a deleted group. \
                 Assign group ownership to an active group or remove the file."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -244,22 +280,36 @@ impl AuditRule for OrphanedGid {
 // ── Rule: writable system path ────────────────────────────────────────────────
 
 const SYSTEM_PATHS: &[&str] = &[
-    "/etc", "/usr/bin", "/usr/lib", "/usr/sbin", "/sbin", "/bin",
-    "/usr/libexec", "/lib", "/lib64", "/usr/lib64",
+    "/etc",
+    "/usr/bin",
+    "/usr/lib",
+    "/usr/sbin",
+    "/sbin",
+    "/bin",
+    "/usr/libexec",
+    "/lib",
+    "/lib64",
+    "/usr/lib64",
 ];
 
 pub struct WritableSystemPath;
 
 impl AuditRule for WritableSystemPath {
-    fn id(&self) -> &'static str { "writable-system-path" }
-    fn name(&self) -> &'static str { "Writable System Path" }
-    fn severity(&self) -> Severity { Severity::Critical }
+    fn id(&self) -> &'static str {
+        "writable-system-path"
+    }
+    fn name(&self) -> &'static str {
+        "Writable System Path"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Critical
+    }
 
     fn check(&self, entry: &PathEntry, _ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         let path_str = entry.path.to_string_lossy();
-        let is_system = SYSTEM_PATHS.iter().any(|sys| {
-            path_str == *sys || path_str.starts_with(&format!("{sys}/"))
-        });
+        let is_system = SYSTEM_PATHS
+            .iter()
+            .any(|sys| path_str == *sys || path_str.starts_with(&format!("{sys}/")));
         if !is_system {
             return None;
         }
@@ -278,11 +328,10 @@ impl AuditRule for WritableSystemPath {
                 "System path is writable by non-root principal (mode {})",
                 entry.mode.to_octal()
             ),
-            recommendation:
-                "System directories and binaries should only be writable by root. \
+            recommendation: "System directories and binaries should only be writable by root. \
                 Remove write permissions from group and other, and ensure the \
                 owner is root."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -292,9 +341,15 @@ impl AuditRule for WritableSystemPath {
 pub struct HomeOtherReadable;
 
 impl AuditRule for HomeOtherReadable {
-    fn id(&self) -> &'static str { "home-other-readable" }
-    fn name(&self) -> &'static str { "Home Directory Readable by Others" }
-    fn severity(&self) -> Severity { Severity::High }
+    fn id(&self) -> &'static str {
+        "home-other-readable"
+    }
+    fn name(&self) -> &'static str {
+        "Home Directory Readable by Others"
+    }
+    fn severity(&self) -> Severity {
+        Severity::High
+    }
 
     fn check(&self, entry: &PathEntry, ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if entry.entry_type != EntryType::Directory {
@@ -326,11 +381,10 @@ impl AuditRule for HomeOtherReadable {
                 owner_name,
                 entry.mode.to_octal()
             ),
-            recommendation:
-                "Set home directory permissions to 0700 or 0750 (owner-only or \
+            recommendation: "Set home directory permissions to 0700 or 0750 (owner-only or \
                 owner+group). World-readable home directories expose files to \
                 all local users."
-                    .into(),
+                .into(),
         })
     }
 }
@@ -340,16 +394,24 @@ impl AuditRule for HomeOtherReadable {
 pub struct ExecutableWritableByNonAdmin;
 
 impl AuditRule for ExecutableWritableByNonAdmin {
-    fn id(&self) -> &'static str { "executable-writable-non-admin" }
-    fn name(&self) -> &'static str { "Executable Writable by Non-Admin" }
-    fn severity(&self) -> Severity { Severity::High }
+    fn id(&self) -> &'static str {
+        "executable-writable-non-admin"
+    }
+    fn name(&self) -> &'static str {
+        "Executable Writable by Non-Admin"
+    }
+    fn severity(&self) -> Severity {
+        Severity::High
+    }
 
     fn check(&self, entry: &PathEntry, _ctx: &AuditContext<'_>) -> Option<AuditFinding> {
         if entry.entry_type != EntryType::File {
             return None;
         }
         // Is it executable by anyone?
-        let executable = (entry.mode.owner_bits() | entry.mode.group_bits() | entry.mode.other_bits()) & 0o1 != 0;
+        let executable =
+            (entry.mode.owner_bits() | entry.mode.group_bits() | entry.mode.other_bits()) & 0o1
+                != 0;
         if !executable {
             return None;
         }
@@ -501,7 +563,13 @@ mod tests {
     fn home_subdir_not_flagged() {
         let db = db();
         // /home/alice/projects is a subdir, not the home dir itself
-        let e = entry("/home/alice/projects", 0o755, 1000, 1000, EntryType::Directory);
+        let e = entry(
+            "/home/alice/projects",
+            0o755,
+            1000,
+            1000,
+            EntryType::Directory,
+        );
         assert!(HomeOtherReadable.check(&e, &ctx(&db)).is_none());
     }
 }

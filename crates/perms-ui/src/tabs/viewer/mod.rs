@@ -1,12 +1,14 @@
 pub mod directory_view;
+pub mod group_view;
+pub mod ssh_view;
 pub mod user_view;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use gtk4::prelude::*;
 use crate::app_state::SharedState;
+use gtk4::prelude::*;
 
 /// Build the Viewer tab.
 /// Returns `(widget, navigate_fn)` where `navigate_fn` switches to the Directory
@@ -24,11 +26,9 @@ pub fn build(
 
     let (dir_widget, load_dir) = directory_view::build(state.clone(), on_manage, focus_mgmt);
     stack.add_titled(&dir_widget, Some("directory"), "Directory");
-    stack.add_titled(
-        &user_view::build(state.clone()),
-        Some("user"),
-        "User",
-    );
+    stack.add_titled(&user_view::build(state.clone()), Some("user"), "User");
+    stack.add_titled(&group_view::build(state.clone()), Some("group"), "Groups");
+    stack.add_titled(&ssh_view::build(), Some("ssh"), "SSH");
 
     let switcher = gtk4::StackSwitcher::builder()
         .stack(&stack)

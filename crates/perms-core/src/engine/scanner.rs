@@ -1,8 +1,8 @@
-use std::path::{Path, PathBuf};
-use std::sync::mpsc;
 use anyhow::Result;
 use chrono::Utc;
-use nix::sys::stat::{lstat, SFlag};
+use nix::sys::stat::{SFlag, lstat};
+use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 use walkdir::WalkDir;
 
 use crate::domain::acl::{AclEntry, AclSet, AclTag};
@@ -221,7 +221,11 @@ fn read_acl(path: &Path) -> Option<AclSet> {
         })
         .collect();
 
-    Some(AclSet { access_entries, default_entries, mask })
+    Some(AclSet {
+        access_entries,
+        default_entries,
+        mask,
+    })
 }
 
 fn getxattr(path: &Path, name: &str) -> Option<Vec<u8>> {
@@ -233,7 +237,12 @@ fn getxattr(path: &Path, name: &str) -> Option<Vec<u8>> {
 
     // First call: get size
     let size = unsafe {
-        libc_getxattr(path_cstr.as_ptr(), name_cstr.as_ptr(), std::ptr::null_mut(), 0)
+        libc_getxattr(
+            path_cstr.as_ptr(),
+            name_cstr.as_ptr(),
+            std::ptr::null_mut(),
+            0,
+        )
     };
     if size <= 0 {
         return None;

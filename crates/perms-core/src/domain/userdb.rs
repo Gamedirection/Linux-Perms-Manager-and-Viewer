@@ -54,7 +54,12 @@ impl UserDb {
         let users_by_name: HashMap<String, u32> =
             users.iter().map(|u| (u.username.clone(), u.uid)).collect();
 
-        Self { users_by_uid, users_by_name, groups_by_gid, groups_by_name }
+        Self {
+            users_by_uid,
+            users_by_name,
+            groups_by_gid,
+            groups_by_name,
+        }
     }
 
     pub fn user_by_uid(&self, uid: u32) -> Option<&SystemUser> {
@@ -62,7 +67,9 @@ impl UserDb {
     }
 
     pub fn user_by_name(&self, name: &str) -> Option<&SystemUser> {
-        self.users_by_name.get(name).and_then(|uid| self.users_by_uid.get(uid))
+        self.users_by_name
+            .get(name)
+            .and_then(|uid| self.users_by_uid.get(uid))
     }
 
     pub fn group_by_gid(&self, gid: u32) -> Option<&SystemGroup> {
@@ -70,7 +77,9 @@ impl UserDb {
     }
 
     pub fn group_by_name(&self, name: &str) -> Option<&SystemGroup> {
-        self.groups_by_name.get(name).and_then(|gid| self.groups_by_gid.get(gid))
+        self.groups_by_name
+            .get(name)
+            .and_then(|gid| self.groups_by_gid.get(gid))
     }
 
     pub fn all_users(&self) -> impl Iterator<Item = &SystemUser> {
@@ -79,6 +88,37 @@ impl UserDb {
 
     pub fn all_groups(&self) -> impl Iterator<Item = &SystemGroup> {
         self.groups_by_gid.values()
+    }
+
+    pub fn all_users_sorted(&self) -> Vec<SystemUser> {
+        let mut users = self.all_users().cloned().collect::<Vec<_>>();
+        users.sort_by_key(|user| user.uid);
+        users
+    }
+
+    pub fn all_groups_sorted(&self) -> Vec<SystemGroup> {
+        let mut groups = self.all_groups().cloned().collect::<Vec<_>>();
+        groups.sort_by_key(|group| group.gid);
+        groups
+    }
+
+    pub fn resolved_group_members(&self, group: &SystemGroup) -> Vec<(SystemUser, bool)> {
+        let mut members = self
+            .all_users()
+            .filter_map(|user| {
+                if user.primary_gid == group.gid {
+                    Some((user.clone(), true))
+                } else if group.members.contains(&user.username)
+                    || user.supplementary_gids.contains(&group.gid)
+                {
+                    Some((user.clone(), false))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        members.sort_by_key(|(user, is_primary)| (!*is_primary, user.uid));
+        members
     }
 
     pub fn uid_known(&self, uid: u32) -> bool {

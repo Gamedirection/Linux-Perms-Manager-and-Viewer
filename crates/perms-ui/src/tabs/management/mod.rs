@@ -161,7 +161,11 @@ fn show_confirm_dialog(
     on_confirm: impl Fn() + 'static,
 ) {
     let dialog = gtk4::Window::builder()
-        .title(if risk == RiskLevel::High { "High-Risk Operation" } else { "Confirm Changes" })
+        .title(if risk == RiskLevel::High {
+            "High-Risk Operation"
+        } else {
+            "Confirm Changes"
+        })
         .modal(true)
         .default_width(420)
         .resizable(false)
@@ -298,7 +302,11 @@ impl ModeEditor {
             );
         }
 
-        let groups = [("Owner", "mode-owner"), ("Group", "mode-group"), ("Other", "mode-other")];
+        let groups = [
+            ("Owner", "mode-owner"),
+            ("Group", "mode-group"),
+            ("Other", "mode-other"),
+        ];
         let mut checks: Vec<gtk4::CheckButton> = Vec::with_capacity(9);
 
         for (row, (label, css)) in groups.into_iter().enumerate() {
@@ -327,7 +335,9 @@ impl ModeEditor {
             let checks_c: Vec<_> = checks.clone();
             let syncing_c = syncing.clone();
             chk.connect_toggled(move |_| {
-                if syncing_c.get() { return; }
+                if syncing_c.get() {
+                    return;
+                }
                 syncing_c.set(true);
                 let mode = mode_from_checks(&checks_c);
                 octal_entry_c.set_text(&format!("{:04o}", mode));
@@ -341,10 +351,14 @@ impl ModeEditor {
             let checks_c = checks.clone();
             let syncing_c = syncing.clone();
             octal_entry.connect_changed(move |entry| {
-                if syncing_c.get() { return; }
+                if syncing_c.get() {
+                    return;
+                }
                 let text = entry.text();
                 let trimmed = text.trim_start_matches('0');
-                if let Ok(mode) = u32::from_str_radix(if trimmed.is_empty() { "0" } else { trimmed }, 8) {
+                if let Ok(mode) =
+                    u32::from_str_radix(if trimmed.is_empty() { "0" } else { trimmed }, 8)
+                {
                     syncing_c.set(true);
                     apply_mode_to_checks(mode, &checks_c);
                     syncing_c.set(false);
@@ -352,7 +366,11 @@ impl ModeEditor {
             });
         }
 
-        Self { widget: vbox, octal_entry, checks }
+        Self {
+            widget: vbox,
+            octal_entry,
+            checks,
+        }
     }
 
     fn current_mode(&self) -> Option<u32> {
@@ -374,14 +392,21 @@ impl ModeEditor {
 }
 
 fn mode_from_checks(checks: &[gtk4::CheckButton]) -> u32 {
-    let bits: [u32; 9] = [0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001];
-    checks.iter().zip(bits.iter()).fold(0u32, |acc, (chk, &bit)| {
-        if chk.is_active() { acc | bit } else { acc }
-    })
+    let bits: [u32; 9] = [
+        0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001,
+    ];
+    checks.iter().zip(bits.iter()).fold(
+        0u32,
+        |acc, (chk, &bit)| {
+            if chk.is_active() { acc | bit } else { acc }
+        },
+    )
 }
 
 fn apply_mode_to_checks(mode: u32, checks: &[gtk4::CheckButton]) {
-    let bits: [u32; 9] = [0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001];
+    let bits: [u32; 9] = [
+        0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001,
+    ];
     for (chk, &bit) in checks.iter().zip(bits.iter()) {
         chk.set_active(mode & bit != 0);
     }
@@ -518,7 +543,9 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
         if let Some(obj) = item.item().and_downcast::<PathObject>() {
             if let Some(entry) = obj.entry() {
                 if let Some(row) = item.child().and_downcast::<gtk4::Box>() {
-                    let name = entry.path.file_name()
+                    let name = entry
+                        .path
+                        .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| entry.path.to_string_lossy().to_string());
 
@@ -612,7 +639,9 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
         .title("Ownership")
         .build();
 
-    let owner_row = libadwaita::ActionRow::builder().title("Owner (username)").build();
+    let owner_row = libadwaita::ActionRow::builder()
+        .title("Owner (username)")
+        .build();
     let owner_entry = gtk4::Entry::builder()
         .placeholder_text("leave blank to keep")
         .hexpand(true)
@@ -622,7 +651,9 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
     owner_row.add_suffix(&owner_entry);
     ownership_group.add(&owner_row);
 
-    let group_row = libadwaita::ActionRow::builder().title("Group (name)").build();
+    let group_row = libadwaita::ActionRow::builder()
+        .title("Group (name)")
+        .build();
     let group_entry = gtk4::Entry::builder()
         .placeholder_text("leave blank to keep")
         .hexpand(true)
@@ -643,9 +674,7 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
         .title("Recursive")
         .subtitle("Apply to all files and subdirectories")
         .build();
-    let recursive_switch = gtk4::Switch::builder()
-        .valign(gtk4::Align::Center)
-        .build();
+    let recursive_switch = gtk4::Switch::builder().valign(gtk4::Align::Center).build();
     recursive_row.add_suffix(&recursive_switch);
     opts_group.add(&recursive_row);
 
@@ -741,11 +770,15 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
     // ── Select All / Clear ────────────────────────────────────────────────────
     {
         let multi_sel = multi_sel.clone();
-        select_all_btn.connect_clicked(move |_| { multi_sel.select_all(); });
+        select_all_btn.connect_clicked(move |_| {
+            multi_sel.select_all();
+        });
     }
     {
         let multi_sel = multi_sel.clone();
-        clear_btn.connect_clicked(move |_| { multi_sel.unselect_all(); });
+        clear_btn.connect_clicked(move |_| {
+            multi_sel.unselect_all();
+        });
     }
 
     // ── Selection changed → update edit panel ─────────────────────────────────
@@ -789,10 +822,14 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
 
                 // Resolve owner/group names
                 let s = state.lock().unwrap();
-                let owner_name = s.userdb.user_by_uid(e.owner_uid)
+                let owner_name = s
+                    .userdb
+                    .user_by_uid(e.owner_uid)
                     .map(|u| u.username.clone())
                     .unwrap_or_default();
-                let group_name = s.userdb.group_by_gid(e.owner_gid)
+                let group_name = s
+                    .userdb
+                    .group_by_gid(e.owner_gid)
                     .map(|g| g.name.clone())
                     .unwrap_or_default();
                 drop(s);
@@ -953,7 +990,11 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
                 "{ops} on {n} item{}{}.{}",
                 if n == 1 { "" } else { "s" },
                 if recursive { " (recursive)" } else { "" },
-                if dry_run { "\n\n[Dry run — no changes will be written]" } else { "" },
+                if dry_run {
+                    "\n\n[Dry run — no changes will be written]"
+                } else {
+                    ""
+                },
             );
 
             // Get parent window for dialog
@@ -1036,6 +1077,8 @@ pub fn build(state: SharedState) -> (gtk4::Widget, ManagementController) {
         });
     }
 
-    let controller = ManagementController { navigate: load_dir_fn };
+    let controller = ManagementController {
+        navigate: load_dir_fn,
+    };
     (outer.upcast(), controller)
 }

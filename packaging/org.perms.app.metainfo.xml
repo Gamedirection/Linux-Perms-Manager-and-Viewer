@@ -13,11 +13,12 @@
     <p>Features include:</p>
     <ul>
       <li>Dashboard with 8 live audit widgets</li>
-      <li>Directory browser with detailed permission views</li>
-      <li>User view for effective access evaluation</li>
+      <li>Directory browser with root, user, and group perspective controls</li>
+      <li>User and group viewers with effective access and membership inspection</li>
+      <li>Privileged user and group creation via the helper and polkit prompt</li>
+      <li>SSH review for keys, permissions, and daemon settings</li>
       <li>Permission management with dry-run mode</li>
-      <li>Risk assessment for permission changes</li>
-      <li>Audit logging</li>
+      <li>Theme presets and custom theme colors</li>
     </ul>
   </description>
   <launchable type="desktop-id">org.perms.app.desktop</launchable>
@@ -28,7 +29,7 @@
   <releases>
     <release version="0.2.0" date="2026-04-10">
       <description>
-        <p>Initial release</p>
+        <p>Expanded the viewer, root-authenticated inspection, SSH review, account administration, and packaging assets.</p>
       </description>
     </release>
   </releases>

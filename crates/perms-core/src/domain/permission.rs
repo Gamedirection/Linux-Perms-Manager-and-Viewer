@@ -36,7 +36,11 @@ impl UnixMode {
             out.push(if rwx & 0o4 != 0 { 'r' } else { '-' });
             out.push(if rwx & 0o2 != 0 { 'w' } else { '-' });
             out.push(if special {
-                if rwx & 0o1 != 0 { exec_special } else { noexec_special }
+                if rwx & 0o1 != 0 {
+                    exec_special
+                } else {
+                    noexec_special
+                }
             } else if rwx & 0o1 != 0 {
                 'x'
             } else {

@@ -36,7 +36,9 @@ pub fn evaluate(user: &SystemUser, entry: &PathEntry) -> EffectiveAccess {
     // Check ACLs when present and extended (i.e. more than just UserObj/GroupObj/Other).
     if let Some(acl) = &entry.acl {
         if acl.has_extended_entries() {
-            explanation.push(ExplanationStep::new("Path has extended ACL — evaluating ACL entries"));
+            explanation.push(ExplanationStep::new(
+                "Path has extended ACL — evaluating ACL entries",
+            ));
 
             // Named user entry takes highest priority.
             if let Some(acl_entry) = acl.user_entry(user.uid) {
@@ -65,8 +67,7 @@ pub fn evaluate(user: &SystemUser, entry: &PathEntry) -> EffectiveAccess {
             }
 
             // Named group entries: union all matching, then apply mask.
-            let matching_groups: Vec<_> =
-                acl.group_entries_for(user.all_gids()).collect();
+            let matching_groups: Vec<_> = acl.group_entries_for(user.all_gids()).collect();
 
             if !matching_groups.is_empty() {
                 let union_granted = matching_groups.iter().fold(0u8, |a, e| a | e.permissions);
@@ -89,7 +90,11 @@ pub fn evaluate(user: &SystemUser, entry: &PathEntry) -> EffectiveAccess {
                     bits_str(effective),
                 )));
 
-                let gid = if let AclTag::Group(g) = matching_groups[0].tag { g } else { 0 };
+                let gid = if let AclTag::Group(g) = matching_groups[0].tag {
+                    g
+                } else {
+                    0
+                };
                 return EffectiveAccess {
                     uid: user.uid,
                     path: entry.path.clone(),
@@ -120,7 +125,9 @@ pub fn evaluate(user: &SystemUser, entry: &PathEntry) -> EffectiveAccess {
     }
 
     // Standard mode bits.
-    explanation.push(ExplanationStep::new("No extended ACL — evaluating standard mode bits"));
+    explanation.push(ExplanationStep::new(
+        "No extended ACL — evaluating standard mode bits",
+    ));
 
     let mode = entry.mode;
 
@@ -155,7 +162,9 @@ pub fn evaluate(user: &SystemUser, entry: &PathEntry) -> EffectiveAccess {
             can_read: cert(bits & 0o4 != 0),
             can_write: cert(bits & 0o2 != 0),
             can_execute: cert(bits & 0o1 != 0),
-            source: AccessSource::GroupMembership { gid: entry.owner_gid },
+            source: AccessSource::GroupMembership {
+                gid: entry.owner_gid,
+            },
             explanation,
         };
     }
@@ -171,13 +180,21 @@ pub fn evaluate(user: &SystemUser, entry: &PathEntry) -> EffectiveAccess {
         can_read: cert(bits & 0o4 != 0),
         can_write: cert(bits & 0o2 != 0),
         can_execute: cert(bits & 0o1 != 0),
-        source: if bits == 0 { AccessSource::Denied } else { AccessSource::WorldBits },
+        source: if bits == 0 {
+            AccessSource::Denied
+        } else {
+            AccessSource::WorldBits
+        },
         explanation,
     }
 }
 
 fn cert(granted: bool) -> Certainty {
-    if granted { Certainty::Exact } else { Certainty::Exact }
+    if granted {
+        Certainty::Exact
+    } else {
+        Certainty::Exact
+    }
     // Both cases return Exact here because we computed directly from stat data.
     // Certainty::Unknown is reserved for cases with missing data (handled upstream).
 }
@@ -247,7 +264,10 @@ mod tests {
         let user = make_user(1001, 1001, vec![1000]);
         let entry = make_entry(0o750, 1000, 1000); // group bits: r-x
         let result = evaluate(&user, &entry);
-        assert!(matches!(result.source, AccessSource::GroupMembership { gid: 1000 }));
+        assert!(matches!(
+            result.source,
+            AccessSource::GroupMembership { gid: 1000 }
+        ));
         assert_eq!(result.can_read, Certainty::Exact);
         assert_eq!(result.can_execute, Certainty::Exact);
     }

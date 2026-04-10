@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.0.6 — Viewer Administration and Packaging Assets
+
+### Added
+- **Group viewer** — inspect groups and resolve both primary and supplementary members from the live user database
+- **User and group creation** — create accounts through the helper with a `pkexec` password prompt when elevation is required
+
+### Changed
+- Updated README with the new group/admin features and package build commands
+- Updated packaging metadata to install desktop entry, metainfo, and icons from `./icon`
+- Switched AppImage and Flatpak icon assets to the repository icons instead of generated placeholder artwork
+
+---
+
+## v0.0.5 — Phase 5: View-As, SSH Review, Themes, and DRY Refactor
+
+### Added
+- **Viewer root/user/group perspective controls** — browse as Current, Root, User, or Group in the directory view
+- **Polkit-backed root review flow** — authenticate with `pkexec` to inspect root-only directories without launching the whole UI as root
+- **`perms-helper` read subcommands** — `probe`, `scan-dir`, and `ssh-review` JSON output for privileged viewer operations
+- **SSH review tab** — scans SSH directories and configs for risky permissions, exposed private keys, and insecure SSH daemon settings
+- **Theme settings** — preset themes plus a custom palette with live application-wide updates
+
+### Changed
+- Refactored settings persistence so every settings signal now uses one shared save/apply closure instead of repeating the same field-copy logic
+- Refactored viewer reload wiring so subject changes reuse one shared “reload current path” callback
+- Reduced `PATH` lookup overhead in helper command detection by removing unnecessary intermediate allocations
+- Updated README to document root-authenticated viewing, SSH review, theme presets, and custom themes
+
+---
+
 ## v0.0.4 — Phase 4: Management Tab
 
 ### Added

@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 /// An ACL entry tag — what principal does this entry apply to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AclTag {
-    UserObj,       // owning user (matches mode owner bits)
-    User(u32),     // named user by UID
-    GroupObj,      // owning group (matches mode group bits)
-    Group(u32),    // named group by GID
-    Mask,          // effective permission mask
-    Other,         // everyone else
+    UserObj,    // owning user (matches mode owner bits)
+    User(u32),  // named user by UID
+    GroupObj,   // owning group (matches mode group bits)
+    Group(u32), // named group by GID
+    Mask,       // effective permission mask
+    Other,      // everyone else
 }
 
 /// A single ACL entry: tag + permission bits.
@@ -99,12 +99,36 @@ mod tests {
     fn make_acl() -> AclSet {
         AclSet {
             access_entries: vec![
-                AclEntry { tag: AclTag::UserObj, permissions: 0o7, effective: 0o7 },
-                AclEntry { tag: AclTag::User(1001), permissions: 0o6, effective: 0o4 }, // masked
-                AclEntry { tag: AclTag::GroupObj, permissions: 0o5, effective: 0o4 },
-                AclEntry { tag: AclTag::Group(27), permissions: 0o6, effective: 0o4 },
-                AclEntry { tag: AclTag::Mask, permissions: 0o5, effective: 0o5 },
-                AclEntry { tag: AclTag::Other, permissions: 0o0, effective: 0o0 },
+                AclEntry {
+                    tag: AclTag::UserObj,
+                    permissions: 0o7,
+                    effective: 0o7,
+                },
+                AclEntry {
+                    tag: AclTag::User(1001),
+                    permissions: 0o6,
+                    effective: 0o4,
+                }, // masked
+                AclEntry {
+                    tag: AclTag::GroupObj,
+                    permissions: 0o5,
+                    effective: 0o4,
+                },
+                AclEntry {
+                    tag: AclTag::Group(27),
+                    permissions: 0o6,
+                    effective: 0o4,
+                },
+                AclEntry {
+                    tag: AclTag::Mask,
+                    permissions: 0o5,
+                    effective: 0o5,
+                },
+                AclEntry {
+                    tag: AclTag::Other,
+                    permissions: 0o0,
+                    effective: 0o0,
+                },
             ],
             default_entries: Vec::new(),
             mask: Some(0o5),
@@ -131,7 +155,7 @@ mod tests {
         let acl = make_acl();
         let entry = acl.user_entry(1001).unwrap();
         assert_eq!(entry.permissions, 0o6); // granted rw
-        assert_eq!(entry.effective, 0o4);   // but mask limits to r only
+        assert_eq!(entry.effective, 0o4); // but mask limits to r only
         assert!(entry.can_read());
         assert!(!entry.can_write());
     }

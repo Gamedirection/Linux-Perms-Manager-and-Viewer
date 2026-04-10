@@ -16,12 +16,12 @@ pub fn open(path: &Path) -> Result<Connection> {
 }
 
 fn migrate(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);",
-    )?;
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);")?;
 
     let version: u32 = conn
-        .query_row("SELECT version FROM schema_version LIMIT 1", [], |r| r.get(0))
+        .query_row("SELECT version FROM schema_version LIMIT 1", [], |r| {
+            r.get(0)
+        })
         .unwrap_or(0);
 
     if version < SCHEMA_VERSION {
@@ -168,7 +168,11 @@ mod tests {
 
         assert_eq!(count_entries(&conn).unwrap(), 1);
         let mode: i64 = conn
-            .query_row("SELECT mode FROM path_entries WHERE path = '/home/alice'", [], |r| r.get(0))
+            .query_row(
+                "SELECT mode FROM path_entries WHERE path = '/home/alice'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(mode as u32, 0o700);
     }

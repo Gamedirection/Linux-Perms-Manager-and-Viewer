@@ -5,7 +5,7 @@ use gtk4::prelude::*;
 use perms_core::domain::{AccessSource, Certainty};
 use perms_core::engine::{effective_access, scanner::stat_entry};
 
-use crate::app_state::SharedState;
+use crate::app_state::{SharedState, reload_userdb};
 use crate::model::PathObject;
 
 pub fn build(state: SharedState) -> gtk4::Widget {
@@ -13,18 +13,9 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     outer.set_vexpand(true);
     outer.set_hexpand(true);
 
-    // ── User selector toolbar ─────────────────────────────────────────────────
-    let names: Vec<String> = {
-        let s = state.lock().unwrap();
-        let mut users: Vec<_> = s.userdb.all_users().collect();
-        users.sort_by_key(|u| u.uid);
-        users.iter().map(|u| format!("{} ({})", u.username, u.uid)).collect()
-    };
-
-    let str_list = gtk4::StringList::new(&names.iter().map(|s| s.as_str()).collect::<Vec<_>>());
-    let user_dropdown = gtk4::DropDown::builder()
-        .model(&str_list)
-        .build();
+    let user_list = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let str_list = gtk4::StringList::new(&[]);
+    let user_dropdown = gtk4::DropDown::builder().model(&str_list).build();
 
     let scan_root_entry = gtk4::Entry::builder()
         .text("/home")
@@ -37,6 +28,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
         .label("Show Access")
         .css_classes(["suggested-action"])
         .build();
+    let refresh_btn = gtk4::Button::builder().label("Refresh Users").build();
 
     let toolbar = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
     toolbar.set_margin_top(8);
@@ -48,6 +40,7 @@ pub fn build(state: SharedState) -> gtk4::Widget {
     toolbar.append(&gtk4::Label::new(Some("in")));
     toolbar.append(&scan_root_entry);
     toolbar.append(&scan_btn);
+    toolbar.append(&refresh_btn);
 
     outer.append(&toolbar);
 
@@ -104,7 +97,8 @@ pub fn build(state: SharedState) -> gtk4::Widget {
                         }
                         // subtitle = second child label
                         if let Some(title_w) = row.first_child() {
-                            if let Some(sub) = title_w.next_sibling().and_downcast::<gtk4::Label>() {
+                            if let Some(sub) = title_w.next_sibling().and_downcast::<gtk4::Label>()
+                            {
                                 sub.set_label(&format!(
                                     "{}  {}  uid:{}  gid:{}",
                                     entry.mode.to_symbolic(),
@@ -136,25 +130,53 @@ pub fn build(state: SharedState) -> gtk4::Widget {
 
     outer.append(&scroll);
 
+    let refresh_users: std::rc::Rc<dyn Fn()> = {
+        let state = state.clone();
+        let user_list = user_list.clone();
+        let str_list = str_list.clone();
+        std::rc::Rc::new(move || {
+            let _ = reload_userdb(&state);
+            let users = state.lock().unwrap().userdb.all_users_sorted();
+            let labels = users
+                .iter()
+                .map(|user| format!("{} ({})", user.username, user.uid))
+                .collect::<Vec<_>>();
+            user_list.replace(users);
+            str_list.splice(
+                0,
+                str_list.n_items(),
+                &labels
+                    .iter()
+                    .map(|label| label.as_str())
+                    .collect::<Vec<_>>(),
+            );
+        })
+    };
+    refresh_users();
+
+    {
+        let refresh_users = refresh_users.clone();
+        refresh_btn.connect_clicked(move |_| refresh_users());
+    }
+
     // ── Scan handler ──────────────────────────────────────────────────────────
     {
-        let user_list = {
-            let s = state.lock().unwrap();
-            let mut users: Vec<_> = s.userdb.all_users().cloned().collect();
-            users.sort_by_key(|u| u.uid);
-            users
-        };
+        let user_list = user_list.clone();
 
         scan_btn.connect_clicked(move |_| {
             results_store.remove_all();
 
             let idx = user_dropdown.selected() as usize;
             let root = PathBuf::from(scan_root_entry.text().as_str());
-            let Some(user) = user_list.get(idx) else { return; };
+            let users = user_list.borrow();
+            let Some(user) = users.get(idx) else {
+                return;
+            };
 
             status_label.set_label(&format!(
                 "Scanning {} for '{}'…",
-                root.display(), user.username
+                root.display(),
+                user.username
             ));
 
             let paths: Vec<PathBuf> = match std::fs::read_dir(&root) {

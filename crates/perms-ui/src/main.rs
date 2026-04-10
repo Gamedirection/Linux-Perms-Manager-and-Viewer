@@ -7,12 +7,12 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use gtk4::prelude::*;
 use gtk4::CssProvider;
+use gtk4::prelude::*;
 use libadwaita::ColorScheme;
 use libadwaita::StyleManager;
 
-use app_state::new_shared;
+use app_state::{Settings, new_shared};
 use tabs::{build_dashboard, build_management, build_settings, viewer};
 
 fn main() {
@@ -25,10 +25,7 @@ fn main() {
 }
 
 fn build_ui(app: &libadwaita::Application) {
-    StyleManager::default().set_color_scheme(ColorScheme::PreferDark);
-
     let provider = CssProvider::new();
-    provider.load_from_string(include_str!("../resources/style.css"));
     gtk4::style_context_add_provider_for_display(
         &gtk4::gdk::Display::default().unwrap(),
         &provider,
@@ -36,6 +33,15 @@ fn build_ui(app: &libadwaita::Application) {
     );
 
     let state = new_shared();
+    let apply_theme: Rc<dyn Fn()> = {
+        let state = state.clone();
+        let provider = provider.clone();
+        Rc::new(move || {
+            let settings = state.lock().unwrap().settings.clone();
+            apply_theme_settings(&provider, &settings);
+        })
+    };
+    apply_theme();
 
     // ── Header bar ────────────────────────────────────────────────────────────
     let header = libadwaita::HeaderBar::new();
@@ -62,14 +68,10 @@ fn build_ui(app: &libadwaita::Application) {
     let tab_bar = libadwaita::TabBar::builder().view(&tab_view).build();
 
     // Late-bound callbacks for cross-tab navigation (management and viewer).
-    let on_manage_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> =
-        Rc::new(RefCell::new(None));
-    let focus_mgmt_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> =
-        Rc::new(RefCell::new(None));
-    let on_viewer_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> =
-        Rc::new(RefCell::new(None));
-    let focus_viewer_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> =
-        Rc::new(RefCell::new(None));
+    let on_manage_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> = Rc::new(RefCell::new(None));
+    let focus_mgmt_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> = Rc::new(RefCell::new(None));
+    let on_viewer_fn: Rc<RefCell<Option<Box<dyn Fn(PathBuf)>>>> = Rc::new(RefCell::new(None));
+    let focus_viewer_fn: Rc<RefCell<Option<Box<dyn Fn()>>>> = Rc::new(RefCell::new(None));
 
     let dashboard_tab = tab_view.append(&build_dashboard(
         state.clone(),
@@ -87,7 +89,7 @@ fn build_ui(app: &libadwaita::Application) {
     let mgmt_page = tab_view.append(&mgmt_widget);
     mgmt_page.set_title("Management");
 
-    let settings = tab_view.append(&build_settings(state.clone()));
+    let settings = tab_view.append(&build_settings(state.clone(), apply_theme.clone()));
     settings.set_title("Settings");
 
     tab_view.set_selected_page(&dashboard_tab);
@@ -290,4 +292,101 @@ fn build_ui(app: &libadwaita::Application) {
         .build();
 
     window.present();
+}
+
+fn apply_theme_settings(provider: &CssProvider, settings: &Settings) {
+    let theme = theme_palette(settings);
+    StyleManager::default().set_color_scheme(theme.color_scheme);
+    provider.load_from_string(&format!(
+        "{}\n{}",
+        build_theme_colors_css(&theme),
+        include_str!("../resources/style.css")
+    ));
+}
+
+struct ThemePalette {
+    color_scheme: ColorScheme,
+    accent: String,
+    success: String,
+    warning: String,
+    danger: String,
+    neutral: String,
+    surface: String,
+}
+
+fn theme_palette(settings: &Settings) -> ThemePalette {
+    match settings.theme_preset.as_str() {
+        "light" => ThemePalette {
+            color_scheme: ColorScheme::ForceLight,
+            accent: "#2d6cdf".to_string(),
+            success: "#1f8f55".to_string(),
+            warning: "#c28116".to_string(),
+            danger: "#c34747".to_string(),
+            neutral: "#61758a".to_string(),
+            surface: "#f5f7fb".to_string(),
+        },
+        "forest" => ThemePalette {
+            color_scheme: ColorScheme::ForceDark,
+            accent: "#5dd39e".to_string(),
+            success: "#87e6ba".to_string(),
+            warning: "#e7c86d".to_string(),
+            danger: "#d97777".to_string(),
+            neutral: "#95b6a5".to_string(),
+            surface: "#102019".to_string(),
+        },
+        "graphite" => ThemePalette {
+            color_scheme: ColorScheme::ForceDark,
+            accent: "#8bb8ff".to_string(),
+            success: "#7fd1a9".to_string(),
+            warning: "#f0c674".to_string(),
+            danger: "#ff8b8b".to_string(),
+            neutral: "#abb5c1".to_string(),
+            surface: "#171b22".to_string(),
+        },
+        "sunset" => ThemePalette {
+            color_scheme: ColorScheme::ForceDark,
+            accent: "#ff8f6b".to_string(),
+            success: "#9be29b".to_string(),
+            warning: "#ffd166".to_string(),
+            danger: "#ff6b6b".to_string(),
+            neutral: "#d3b8a0".to_string(),
+            surface: "#27161d".to_string(),
+        },
+        "custom" => ThemePalette {
+            color_scheme: ColorScheme::ForceDark,
+            accent: settings.custom_accent.clone(),
+            success: settings.custom_success.clone(),
+            warning: settings.custom_warning.clone(),
+            danger: settings.custom_danger.clone(),
+            neutral: settings.custom_neutral.clone(),
+            surface: settings.custom_surface.clone(),
+        },
+        _ => ThemePalette {
+            color_scheme: ColorScheme::Default,
+            accent: "#6da6ff".to_string(),
+            success: "#67d48e".to_string(),
+            warning: "#ffc85a".to_string(),
+            danger: "#ff7878".to_string(),
+            neutral: "#a6b3c2".to_string(),
+            surface: "#151a22".to_string(),
+        },
+    }
+}
+
+fn build_theme_colors_css(theme: &ThemePalette) -> String {
+    format!(
+        "\
+@define-color perms_accent {};
+@define-color perms_success {};
+@define-color perms_warning {};
+@define-color perms_danger {};
+@define-color perms_neutral {};
+@define-color perms_surface {};
+
+window {{
+    background: @perms_surface;
+}}
+",
+        theme.accent, theme.success, theme.warning, theme.danger, theme.neutral, theme.surface
+    )
 }

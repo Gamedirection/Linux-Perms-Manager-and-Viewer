@@ -13,7 +13,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use perms_core::engine::audit::{AuditContext, AuditEngine, Severity};
-use perms_core::engine::scanner::{run_scan, ScanConfig, ScanEvent};
+use perms_core::engine::scanner::{ScanConfig, ScanEvent, run_scan};
 
 use crate::app_state::{ScanSummary, SharedState};
 use widgets::*;
@@ -223,14 +223,15 @@ pub fn build(
             progress_bar.set_text(Some("Scanning…"));
             status_label.set_label("Scanning…");
 
-            let queue: Arc<Mutex<VecDeque<DashboardMsg>>> =
-                Arc::new(Mutex::new(VecDeque::new()));
+            let queue: Arc<Mutex<VecDeque<DashboardMsg>>> = Arc::new(Mutex::new(VecDeque::new()));
             let queue_bg = Arc::clone(&queue);
             let queue_ui = Arc::clone(&queue);
 
             let userdb = state.lock().unwrap().userdb.clone();
-            let roots_display: Vec<String> =
-                roots.iter().map(|p| p.to_string_lossy().to_string()).collect();
+            let roots_display: Vec<String> = roots
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .collect();
 
             // Read scan config from settings
             let follow_symlinks = state.lock().unwrap().settings.follow_symlinks;
@@ -288,9 +289,7 @@ pub fn build(
                             summary.total_entries += 1;
                             progress_ticks += 1;
 
-                            if entry.mode.is_world_writable()
-                                && summary.world_writable.len() < 20
-                            {
+                            if entry.mode.is_world_writable() && summary.world_writable.len() < 20 {
                                 summary
                                     .world_writable
                                     .push(entry.path.to_string_lossy().to_string());
@@ -305,8 +304,7 @@ pub fn build(
                                 }
                             }
 
-                            if entry.sensitive_label.is_some()
-                                && summary.sensitive_paths.len() < 20
+                            if entry.sensitive_label.is_some() && summary.sensitive_paths.len() < 20
                             {
                                 summary
                                     .sensitive_paths
@@ -340,8 +338,7 @@ pub fn build(
                             }
                         }
                         ScanEvent::Complete { .. } => {
-                            let mut owners: Vec<(u32, usize)> =
-                                owner_counts.into_iter().collect();
+                            let mut owners: Vec<(u32, usize)> = owner_counts.into_iter().collect();
                             owners.sort_by(|a, b| b.1.cmp(&a.1));
                             summary.top_owners = owners
                                 .into_iter()
@@ -448,10 +445,7 @@ fn populate_grid(
         r
     };
 
-    container.append(&row(
-        privilege_card(privilege),
-        scan_coverage_card(summary),
-    ));
+    container.append(&row(privilege_card(privilege), scan_coverage_card(summary)));
     container.append(&row(
         risk_summary_card(summary, approved, viewer_nav.clone()),
         world_writable_card(summary, approved, viewer_nav.clone()),

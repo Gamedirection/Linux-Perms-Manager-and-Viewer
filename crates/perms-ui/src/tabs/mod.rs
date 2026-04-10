@@ -23,6 +23,6 @@ pub fn build_management(state: SharedState) -> (gtk4::Widget, ManagementControll
     management::build(state)
 }
 
-pub fn build_settings(state: SharedState) -> gtk4::Widget {
-    settings_tab::build(state)
+pub fn build_settings(state: SharedState, apply_theme: Rc<dyn Fn()>) -> gtk4::Widget {
+    settings_tab::build(state, apply_theme)
 }

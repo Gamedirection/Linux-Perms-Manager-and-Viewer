@@ -12,8 +12,11 @@ A Linux-native desktop application for visualizing, auditing, and managing files
 
 ### Viewer tab
 - **Directory view** — browse the filesystem with a 5-column ColumnView (Name, Mode, Owner, Group, Flags); click any entry to open a rich detail panel
+- **View as Current / Root / User / Group** — simulate effective visibility for other users and groups, or authenticate with the helper for root-backed browsing of protected paths
 - **Detail panel** — colorized rwx permission badge (green/yellow/red for owner/group/other), clickable owner/group rows that open user and group detail popups, tooltip with full octal breakdown (e.g. `0755 = 0 special + 7 owner(r+w+x) + 5 group(r+x) + 5 other(r+x)`)
 - **User view** — select any system user and a directory to see all entries that user can access, with effective access evaluation
+- **Group view** — inspect groups, resolve primary and supplementary members, and review memberships without leaving the viewer
+- **SSH review view** — scan visible SSH directories and configs for risky permissions, private key exposure, and insecure `sshd_config` settings; root-authenticated review expands coverage
 
 ### Management tab
 - File browser with **multi-select** (Ctrl+click / Shift+click)
@@ -26,6 +29,11 @@ A Linux-native desktop application for visualizing, auditing, and managing files
 - **Apply** — `std::fs::set_permissions` (chmod) + `nix::unistd::chown` with error collection
 - **Audit log** — JSON Lines appended to `~/.local/share/perms/changes.log`; recent entries shown in bottom strip
 - **IPC protocol types** (`perms-core::ipc`) — `ChangeRequest` / `ChangeResult` / `AuditEntry` ready for Phase 5 polkit helper integration
+- **Account administration** — create users and groups through the helper, with `pkexec` prompting for elevation only when required
+
+### Settings tab
+- **Theme presets** — System, Light, Forest, Graphite, Sunset
+- **Custom theme palette** — editable accent, success, warning, danger, neutral, and surface colors applied live
 
 ### Domain engine (perms-core)
 - Full POSIX effective access evaluation (root bypass → ACL named user → ACL group union + mask → standard mode bits)
@@ -40,12 +48,26 @@ A Linux-native desktop application for visualizing, auditing, and managing files
 - Rust (2024 edition)
 - GTK4 ≥ 4.18 development libraries
 - libadwaita ≥ 1.6 development libraries
+- `pkexec` / polkit for authenticated root-view and SSH helper flows
 
 ### Build and run
 ```bash
 cargo build
 cargo run -p perms-ui
 ```
+
+### Package builds
+```bash
+# AppImage
+cargo build --release
+appimage-builder --recipe AppImageBuilder.yml
+
+# Flatpak
+flatpak-builder --user --install-deps-from=flathub --force-clean build-flatpak packaging/org.perms.app.yml
+flatpak build-bundle ~/.local/share/flatpak/repo packaging/org.perms.app.flatpak org.perms.app
+```
+
+Packaging now uses the assets in [`icon/`](/home/asierputowski/Documents/Project/Linux-Perms-Manager-and-Viewer/icon), with `icon/batch_Page 1.png` and `icon/batch_Page 1.svg` installed as the application icons.
 
 ### Workspace structure
 ```

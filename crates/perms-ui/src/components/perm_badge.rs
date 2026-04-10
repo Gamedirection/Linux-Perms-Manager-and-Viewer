@@ -14,9 +14,9 @@ pub fn mode_badge_colored(mode: UnixMode) -> gtk4::Box {
     let octal = mode.to_octal(); // e.g. "0755"
     // octal is 4 chars: [0] special digit, [1] owner, [2] group, [3] other
     let special_digit = &octal[0..1];
-    let owner_digit   = &octal[1..2];
-    let group_digit   = &octal[2..3];
-    let other_digit   = &octal[3..4];
+    let owner_digit = &octal[1..2];
+    let group_digit = &octal[2..3];
+    let other_digit = &octal[3..4];
 
     let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 4);
     hbox.add_css_class("monospace");

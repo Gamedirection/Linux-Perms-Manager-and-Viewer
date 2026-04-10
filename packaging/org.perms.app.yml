@@ -1,6 +1,5 @@
 app-id: org.perms.app
 runtime: org.gnome.Platform
-app-version: '0.2.0'
 runtime-version: '48'
 sdk: org.gnome.Sdk
 sdk-extensions:
@@ -25,19 +24,12 @@ finish-args:
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+  no-debuginfo: true
   env:
     CARGO_HOME: /run/build/perms/cargo
     npm_config_nodedir: /usr/lib/sdk/node22
 
 modules:
-  - name: vendor
-    buildsystem: simple
-    build-commands:
-      - echo "Vendor directory is part of sources"
-    sources:
-      - type: dir
-        path: vendor
-
   - name: perms
     buildsystem: simple
     build-commands:
@@ -47,11 +39,12 @@ modules:
       - install -Dm644 ./packaging/org.perms.helper.policy /app/share/polkit-1/actions/org.perms.helper.policy
       - install -Dm644 ./packaging/org.perms.app.desktop /app/share/applications/org.perms.app.desktop
       - install -Dm644 ./packaging/org.perms.app.metainfo.xml /app/share/metainfo/org.perms.app.metainfo.xml
-      - install -Dm644 ./packaging/icon.png /app/share/icons/hicolor/256x256/apps/org.perms.app.png
+      - install -Dm644 ./icon/batch_Page\ 1.png /app/share/icons/hicolor/512x512/apps/org.perms.app.png
+      - install -Dm644 ./icon/batch_Page\ 1.svg /app/share/icons/hicolor/scalable/apps/org.perms.app.svg
     sources:
       - type: dir
-        path: .
+        path: ..
       - type: dir
-        path: .cargo
+        path: ../.cargo
       - type: dir
-        path: vendor
+        path: ../vendor

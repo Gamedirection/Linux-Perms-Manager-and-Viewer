@@ -46,19 +46,38 @@ pub struct ChangeResult {
 }
 
 impl ChangeResult {
-    pub fn ok(path: PathBuf, old_mode: Option<String>, new_mode: Option<String>,
-              old_uid: Option<u32>, new_uid: Option<u32>,
-              old_gid: Option<u32>, new_gid: Option<u32>,
-              applied: bool) -> Self {
-        Self { path, old_mode, new_mode, old_uid, new_uid, old_gid, new_gid, applied, error: None }
+    pub fn ok(
+        path: PathBuf,
+        old_mode: Option<String>,
+        new_mode: Option<String>,
+        old_uid: Option<u32>,
+        new_uid: Option<u32>,
+        old_gid: Option<u32>,
+        new_gid: Option<u32>,
+        applied: bool,
+    ) -> Self {
+        Self {
+            path,
+            old_mode,
+            new_mode,
+            old_uid,
+            new_uid,
+            old_gid,
+            new_gid,
+            applied,
+            error: None,
+        }
     }
 
     pub fn err(path: PathBuf, message: impl Into<String>) -> Self {
         Self {
             path,
-            old_mode: None, new_mode: None,
-            old_uid: None, new_uid: None,
-            old_gid: None, new_gid: None,
+            old_mode: None,
+            new_mode: None,
+            old_uid: None,
+            new_uid: None,
+            old_gid: None,
+            new_gid: None,
             applied: false,
             error: Some(message.into()),
         }

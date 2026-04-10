@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use anyhow::Result;
 use perms_core::domain::UserDb;
 
 // ── Persisted settings ────────────────────────────────────────────────────────
@@ -10,6 +11,30 @@ fn serde_default_roots() -> String {
 }
 fn serde_default_max_findings() -> usize {
     50
+}
+fn serde_default_theme_preset() -> String {
+    "system".to_string()
+}
+fn serde_default_custom_theme_name() -> String {
+    "Custom".to_string()
+}
+fn serde_default_custom_accent() -> String {
+    "#7cc6ff".to_string()
+}
+fn serde_default_custom_success() -> String {
+    "#73d98c".to_string()
+}
+fn serde_default_custom_warning() -> String {
+    "#ffcc66".to_string()
+}
+fn serde_default_custom_danger() -> String {
+    "#ff7a7a".to_string()
+}
+fn serde_default_custom_neutral() -> String {
+    "#9fb0c2".to_string()
+}
+fn serde_default_custom_surface() -> String {
+    "#111827".to_string()
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -22,6 +47,22 @@ pub struct Settings {
     pub skip_hidden: bool,
     #[serde(default = "serde_default_max_findings")]
     pub max_findings: usize,
+    #[serde(default = "serde_default_theme_preset")]
+    pub theme_preset: String,
+    #[serde(default = "serde_default_custom_theme_name")]
+    pub custom_theme_name: String,
+    #[serde(default = "serde_default_custom_accent")]
+    pub custom_accent: String,
+    #[serde(default = "serde_default_custom_success")]
+    pub custom_success: String,
+    #[serde(default = "serde_default_custom_warning")]
+    pub custom_warning: String,
+    #[serde(default = "serde_default_custom_danger")]
+    pub custom_danger: String,
+    #[serde(default = "serde_default_custom_neutral")]
+    pub custom_neutral: String,
+    #[serde(default = "serde_default_custom_surface")]
+    pub custom_surface: String,
 }
 
 impl Default for Settings {
@@ -31,6 +72,14 @@ impl Default for Settings {
             follow_symlinks: false,
             skip_hidden: false,
             max_findings: serde_default_max_findings(),
+            theme_preset: serde_default_theme_preset(),
+            custom_theme_name: serde_default_custom_theme_name(),
+            custom_accent: serde_default_custom_accent(),
+            custom_success: serde_default_custom_success(),
+            custom_warning: serde_default_custom_warning(),
+            custom_danger: serde_default_custom_danger(),
+            custom_neutral: serde_default_custom_neutral(),
+            custom_surface: serde_default_custom_surface(),
         }
     }
 }
@@ -154,4 +203,10 @@ pub type SharedState = Arc<Mutex<AppState>>;
 
 pub fn new_shared() -> SharedState {
     Arc::new(Mutex::new(AppState::load()))
+}
+
+pub fn reload_userdb(state: &SharedState) -> Result<()> {
+    let userdb = UserDb::load()?;
+    state.lock().unwrap().userdb = userdb;
+    Ok(())
 }

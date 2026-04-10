@@ -47,11 +47,7 @@ pub fn show(summary: ScanSummary, viewer_nav: Rc<dyn Fn(PathBuf)>) {
         .hexpand(true)
         .build();
 
-    stack.add_titled(
-        &build_summary_page(&summary),
-        Some("summary"),
-        "Summary",
-    );
+    stack.add_titled(&build_summary_page(&summary), Some("summary"), "Summary");
     stack.add_titled(
         &build_findings_page(&summary, viewer_nav.clone()),
         Some("findings"),
@@ -74,39 +70,31 @@ pub fn show(summary: ScanSummary, viewer_nav: Rc<dyn Fn(PathBuf)>) {
     // ── Wire export buttons ───────────────────────────────────────────────────
     {
         let s = summary.clone();
-        csv_btn.connect_clicked(move |_| {
-            match export_csv(&s) {
-                Ok(p) => open_path(&p),
-                Err(e) => eprintln!("CSV export error: {e}"),
-            }
+        csv_btn.connect_clicked(move |_| match export_csv(&s) {
+            Ok(p) => open_path(&p),
+            Err(e) => eprintln!("CSV export error: {e}"),
         });
     }
     {
         let s = summary.clone();
-        html_btn.connect_clicked(move |_| {
-            match export_html(&s) {
-                Ok(p) => open_path(&p),
-                Err(e) => eprintln!("HTML export error: {e}"),
-            }
+        html_btn.connect_clicked(move |_| match export_html(&s) {
+            Ok(p) => open_path(&p),
+            Err(e) => eprintln!("HTML export error: {e}"),
         });
     }
     {
         let s = summary.clone();
-        xlsx_btn.connect_clicked(move |_| {
-            match export_xlsx(&s) {
-                Ok(p) => open_path(&p),
-                Err(e) => eprintln!("XLSX export error: {e}"),
-            }
+        xlsx_btn.connect_clicked(move |_| match export_xlsx(&s) {
+            Ok(p) => open_path(&p),
+            Err(e) => eprintln!("XLSX export error: {e}"),
         });
     }
     {
         // PDF: export HTML and open in browser
         let s = summary.clone();
-        pdf_btn.connect_clicked(move |_| {
-            match export_html(&s) {
-                Ok(p) => open_path(&p),
-                Err(e) => eprintln!("PDF/HTML export error: {e}"),
-            }
+        pdf_btn.connect_clicked(move |_| match export_html(&s) {
+            Ok(p) => open_path(&p),
+            Err(e) => eprintln!("PDF/HTML export error: {e}"),
         });
     }
 
@@ -147,7 +135,11 @@ fn build_summary_page(s: &ScanSummary) -> gtk4::Widget {
     let risk_grp = libadwaita::PreferencesGroup::builder()
         .title("Risk Summary")
         .build();
-    risk_grp.add(&badge_row("Critical", s.findings_critical, "severity-critical"));
+    risk_grp.add(&badge_row(
+        "Critical",
+        s.findings_critical,
+        "severity-critical",
+    ));
     risk_grp.add(&badge_row("High", s.findings_high, "severity-high"));
     risk_grp.add(&badge_row("Medium", s.findings_medium, "severity-medium"));
     risk_grp.add(&badge_row("Low", s.findings_low, "severity-low"));
@@ -170,7 +162,10 @@ fn build_findings_page(s: &ScanSummary, viewer: Rc<dyn Fn(PathBuf)>) -> gtk4::Wi
     vbox.set_margin_end(16);
 
     let grp = libadwaita::PreferencesGroup::builder()
-        .title(&format!("Audit Findings — {} captured", s.recent_findings.len()))
+        .title(&format!(
+            "Audit Findings — {} captured",
+            s.recent_findings.len()
+        ))
         .description("Click any row to open the path in the Viewer.")
         .build();
 
@@ -213,7 +208,10 @@ fn build_ww_page(s: &ScanSummary, viewer: Rc<dyn Fn(PathBuf)>) -> gtk4::Widget {
     vbox.set_margin_end(16);
 
     let grp = libadwaita::PreferencesGroup::builder()
-        .title(&format!("World-Writable Paths — {} found", s.world_writable.len()))
+        .title(&format!(
+            "World-Writable Paths — {} found",
+            s.world_writable.len()
+        ))
         .description("Click any path to open it in the Viewer.")
         .build();
 
@@ -289,7 +287,9 @@ fn build_owners_page(s: &ScanSummary) -> gtk4::Widget {
         .build();
 
     for (name, count) in &s.top_owners {
-        let row = libadwaita::ActionRow::builder().title(name.as_str()).build();
+        let row = libadwaita::ActionRow::builder()
+            .title(name.as_str())
+            .build();
         let badge = gtk4::Label::builder()
             .label(&count.to_string())
             .css_classes(["monospace", "dashboard-count", "severity-info"])
@@ -329,7 +329,9 @@ fn dim_row(msg: &str) -> libadwaita::ActionRow {
 }
 
 fn esc(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn sev_css(s: &str) -> &'static str {
@@ -355,9 +357,7 @@ fn nav_path(path: &str) -> PathBuf {
 }
 
 fn open_path(path: &PathBuf) {
-    let _ = std::process::Command::new("xdg-open")
-        .arg(path)
-        .spawn();
+    let _ = std::process::Command::new("xdg-open").arg(path).spawn();
 }
 
 fn report_dir() -> Result<PathBuf, String> {
@@ -400,40 +400,105 @@ fn export_html(s: &ScanSummary) -> Result<PathBuf, String> {
 
     let mut buf = String::new();
     writeln!(buf, "<!DOCTYPE html><html><head><meta charset='utf-8'>").ok();
-    writeln!(buf, "<title>Audit Report — {}</title>", now.format("%Y-%m-%d")).ok();
+    writeln!(
+        buf,
+        "<title>Audit Report — {}</title>",
+        now.format("%Y-%m-%d")
+    )
+    .ok();
     writeln!(buf, "<style>").ok();
-    writeln!(buf, "body{{font-family:monospace;background:#1e1e2e;color:#cdd6f4;padding:2rem;}}").ok();
-    writeln!(buf, "h1,h2{{color:#cba6f7;}} table{{border-collapse:collapse;width:100%;margin-bottom:2rem;}}").ok();
+    writeln!(
+        buf,
+        "body{{font-family:monospace;background:#1e1e2e;color:#cdd6f4;padding:2rem;}}"
+    )
+    .ok();
+    writeln!(
+        buf,
+        "h1,h2{{color:#cba6f7;}} table{{border-collapse:collapse;width:100%;margin-bottom:2rem;}}"
+    )
+    .ok();
     writeln!(buf, "th{{background:#313244;padding:8px;text-align:left;}} td{{padding:6px 8px;border-bottom:1px solid #45475a;}}").ok();
     writeln!(buf, ".critical{{color:#f38ba8;}} .high{{color:#fab387;}} .medium{{color:#f9e2af;}} .low{{color:#89b4fa;}} .info{{color:#a6adc8;}}").ok();
     writeln!(buf, "</style></head><body>").ok();
     writeln!(buf, "<h1>Linux Permissions Audit Report</h1>").ok();
-    writeln!(buf, "<p><b>Date:</b> {} | <b>Roots:</b> {} | <b>Entries:</b> {}</p>",
+    writeln!(
+        buf,
+        "<p><b>Date:</b> {} | <b>Roots:</b> {} | <b>Entries:</b> {}</p>",
         now.format("%Y-%m-%d %H:%M:%S"),
         html_esc(&s.scan_roots_used.join(", ")),
         s.total_entries
-    ).ok();
+    )
+    .ok();
 
-    writeln!(buf, "<h2>Risk Summary</h2><table><tr><th>Severity</th><th>Count</th></tr>").ok();
-    writeln!(buf, "<tr><td class='critical'>Critical</td><td>{}</td></tr>", s.findings_critical).ok();
-    writeln!(buf, "<tr><td class='high'>High</td><td>{}</td></tr>", s.findings_high).ok();
-    writeln!(buf, "<tr><td class='medium'>Medium</td><td>{}</td></tr>", s.findings_medium).ok();
-    writeln!(buf, "<tr><td class='low'>Low</td><td>{}</td></tr>", s.findings_low).ok();
-    writeln!(buf, "<tr><td class='info'>Info</td><td>{}</td></tr></table>", s.findings_info).ok();
+    writeln!(
+        buf,
+        "<h2>Risk Summary</h2><table><tr><th>Severity</th><th>Count</th></tr>"
+    )
+    .ok();
+    writeln!(
+        buf,
+        "<tr><td class='critical'>Critical</td><td>{}</td></tr>",
+        s.findings_critical
+    )
+    .ok();
+    writeln!(
+        buf,
+        "<tr><td class='high'>High</td><td>{}</td></tr>",
+        s.findings_high
+    )
+    .ok();
+    writeln!(
+        buf,
+        "<tr><td class='medium'>Medium</td><td>{}</td></tr>",
+        s.findings_medium
+    )
+    .ok();
+    writeln!(
+        buf,
+        "<tr><td class='low'>Low</td><td>{}</td></tr>",
+        s.findings_low
+    )
+    .ok();
+    writeln!(
+        buf,
+        "<tr><td class='info'>Info</td><td>{}</td></tr></table>",
+        s.findings_info
+    )
+    .ok();
 
     if !s.recent_findings.is_empty() {
-        writeln!(buf, "<h2>Audit Findings ({} captured)</h2>", s.recent_findings.len()).ok();
-        writeln!(buf, "<table><tr><th>Severity</th><th>Rule</th><th>Path</th></tr>").ok();
+        writeln!(
+            buf,
+            "<h2>Audit Findings ({} captured)</h2>",
+            s.recent_findings.len()
+        )
+        .ok();
+        writeln!(
+            buf,
+            "<table><tr><th>Severity</th><th>Rule</th><th>Path</th></tr>"
+        )
+        .ok();
         for (sev, rule, p) in &s.recent_findings {
             let css = sev.to_lowercase();
-            writeln!(buf, "<tr><td class='{css}'>{}</td><td>{}</td><td>{}</td></tr>",
-                html_esc(sev), html_esc(rule), html_esc(p)).ok();
+            writeln!(
+                buf,
+                "<tr><td class='{css}'>{}</td><td>{}</td><td>{}</td></tr>",
+                html_esc(sev),
+                html_esc(rule),
+                html_esc(p)
+            )
+            .ok();
         }
         writeln!(buf, "</table>").ok();
     }
 
     if !s.world_writable.is_empty() {
-        writeln!(buf, "<h2>World-Writable Paths ({} found)</h2><table><tr><th>Path</th></tr>", s.world_writable.len()).ok();
+        writeln!(
+            buf,
+            "<h2>World-Writable Paths ({} found)</h2><table><tr><th>Path</th></tr>",
+            s.world_writable.len()
+        )
+        .ok();
         for p in &s.world_writable {
             writeln!(buf, "<tr><td>{}</td></tr>", html_esc(p)).ok();
         }
@@ -441,7 +506,12 @@ fn export_html(s: &ScanSummary) -> Result<PathBuf, String> {
     }
 
     if !s.acl_paths.is_empty() {
-        writeln!(buf, "<h2>ACL Paths ({} captured)</h2><table><tr><th>Path</th></tr>", s.acl_paths.len()).ok();
+        writeln!(
+            buf,
+            "<h2>ACL Paths ({} captured)</h2><table><tr><th>Path</th></tr>",
+            s.acl_paths.len()
+        )
+        .ok();
         for p in &s.acl_paths {
             writeln!(buf, "<tr><td>{}</td></tr>", html_esc(p)).ok();
         }
@@ -449,7 +519,11 @@ fn export_html(s: &ScanSummary) -> Result<PathBuf, String> {
     }
 
     if !s.top_owners.is_empty() {
-        writeln!(buf, "<h2>Top File Owners</h2><table><tr><th>User</th><th>Files</th></tr>").ok();
+        writeln!(
+            buf,
+            "<h2>Top File Owners</h2><table><tr><th>User</th><th>Files</th></tr>"
+        )
+        .ok();
         for (user, count) in &s.top_owners {
             writeln!(buf, "<tr><td>{}</td><td>{count}</td></tr>", html_esc(user)).ok();
         }
@@ -489,7 +563,8 @@ fn export_xlsx(s: &ScanSummary) -> Result<PathBuf, String> {
         ws.set_name("World-Writable").map_err(|e| e.to_string())?;
         ws.write(0, 0, "Path").map_err(|e| e.to_string())?;
         for (i, p) in s.world_writable.iter().enumerate() {
-            ws.write((i + 1) as u32, 0, p.as_str()).map_err(|e| e.to_string())?;
+            ws.write((i + 1) as u32, 0, p.as_str())
+                .map_err(|e| e.to_string())?;
         }
     }
 
@@ -499,7 +574,8 @@ fn export_xlsx(s: &ScanSummary) -> Result<PathBuf, String> {
         ws.set_name("ACL Paths").map_err(|e| e.to_string())?;
         ws.write(0, 0, "Path").map_err(|e| e.to_string())?;
         for (i, p) in s.acl_paths.iter().enumerate() {
-            ws.write((i + 1) as u32, 0, p.as_str()).map_err(|e| e.to_string())?;
+            ws.write((i + 1) as u32, 0, p.as_str())
+                .map_err(|e| e.to_string())?;
         }
     }
 

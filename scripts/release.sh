@@ -186,43 +186,13 @@ build_appimage() {
     install -m755 target/release/perms-helper AppDir/usr/libexec/perms-helper
     install -m644 packaging/org.perms.helper.policy AppDir/usr/share/polkit-1/actions/org.perms.helper.policy
     
-    # Create icon (blue square)
-    python3 << 'PYSCRIPT'
-import struct, zlib
-def create_png(size, color, filename):
-    def png_chunk(chunk_type, data):
-        chunk_len = len(data)
-        chunk = chunk_type + data
-        crc = zlib.crc32(chunk) & 0xffffffff
-        return struct.pack('>I', chunk_len) + chunk + struct.pack('>I', crc)
-    signature = b'\x89PNG\r\n\x1a\n'
-    ihdr_data = struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)
-    ihdr = png_chunk(b'IHDR', ihdr_data)
-    raw_data = b''
-    for y in range(size):
-        raw_data += b'\x00'
-        for x in range(size):
-            raw_data += bytes(color + [255])
-    compressed = zlib.compress(raw_data)
-    idat = png_chunk(b'IDAT', compressed)
-    iend = png_chunk(b'IEND', b'')
-    with open(filename, 'wb') as f:
-        f.write(signature + ihdr + idat + iend)
-create_png(256, [74, 144, 217], 'AppDir/usr/share/icons/hicolor/256x256/apps/perms.png')
-create_png(256, [74, 144, 217], 'AppDir/usr/share/pixmaps/perms.png')
-PYSCRIPT
-    
-    # Create desktop file
-    cat > AppDir/perms.desktop << 'DESKTOP'
-[Desktop Entry]
-Name=perms
-Comment=Linux Permissions Manager and Viewer
-Exec=perms
-Icon=perms
-Type=Application
-Categories=System;Settings;
-Terminal=false
-DESKTOP
+    install -Dm644 "icon/batch_Page 1.png" AppDir/usr/share/icons/hicolor/512x512/apps/org.perms.app.png
+    install -Dm644 "icon/batch_Page 1.svg" AppDir/usr/share/icons/hicolor/scalable/apps/org.perms.app.svg
+    install -Dm644 packaging/org.perms.app.desktop AppDir/perms.desktop
+    sed -i 's/^Exec=.*/Exec=perms/' AppDir/perms.desktop
+    sed -i 's/^Icon=.*/Icon=org.perms.app/' AppDir/perms.desktop
+    cp "icon/batch_Page 1.png" AppDir/.DirIcon
+    cp "icon/batch_Page 1.png" AppDir/perms.png
     
     # Create AppRun
     cat > AppDir/AppRun << 'APPRUN'

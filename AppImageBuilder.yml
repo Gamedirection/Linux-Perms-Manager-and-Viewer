@@ -5,55 +5,22 @@ script: |
   mkdir -p AppDir/usr/bin
   mkdir -p AppDir/usr/libexec
   mkdir -p AppDir/usr/share/polkit-1/actions
-  mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-  mkdir -p AppDir/usr/share/pixmaps
+  mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
+  mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+  mkdir -p AppDir/usr/share/applications
   
   install -m755 target/release/perms-ui AppDir/usr/bin/perms
   install -m755 target/release/perms-helper AppDir/usr/libexec/perms-helper
   install -m644 packaging/org.perms.helper.policy AppDir/usr/share/polkit-1/actions/org.perms.helper.policy
-  
-  python3 << 'PYSCRIPT'
-  import struct, zlib
-
-  def create_png(size, color, filename):
-      def png_chunk(chunk_type, data):
-          chunk_len = len(data)
-          chunk = chunk_type + data
-          crc = zlib.crc32(chunk) & 0xffffffff
-          return struct.pack('>I', chunk_len) + chunk + struct.pack('>I', crc)
-      
-      signature = b'\x89PNG\r\n\x1a\n'
-      ihdr_data = struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)
-      ihdr = png_chunk(b'IHDR', ihdr_data)
-      
-      raw_data = b''
-      for y in range(size):
-          raw_data += b'\x00'
-          for x in range(size):
-              raw_data += bytes(color + [255])
-      
-      compressed = zlib.compress(raw_data)
-      idat = png_chunk(b'IDAT', compressed)
-      iend = png_chunk(b'IEND', b'')
-      
-      with open(filename, 'wb') as f:
-          f.write(signature + ihdr + idat + iend)
-
-  create_png(256, [74, 144, 217], 'AppDir/usr/share/icons/hicolor/256x256/apps/perms.png')
-  create_png(256, [74, 144, 217], 'AppDir/usr/share/pixmaps/perms.png')
-  print('Icons created')
-  PYSCRIPT
-  
-  cat > AppDir/perms.desktop << 'DESKTOP'
-  [Desktop Entry]
-  Name=perms
-  Comment=Linux Permissions Manager and Viewer
-  Exec=perms
-  Icon=perms
-  Type=Application
-  Categories=System;Settings;
-  Terminal=false
-  DESKTOP
+  install -m644 icon/batch_Page\ 1.png AppDir/usr/share/icons/hicolor/512x512/apps/org.perms.app.png
+  install -m644 icon/batch_Page\ 1.svg AppDir/usr/share/icons/hicolor/scalable/apps/org.perms.app.svg
+  install -m644 packaging/org.perms.app.desktop AppDir/usr/share/applications/org.perms.app.desktop
+  cp packaging/org.perms.app.desktop AppDir/perms.desktop
+  sed -i 's/^Exec=.*/Exec=perms/' AppDir/perms.desktop
+  sed -i 's/^Icon=.*/Icon=org.perms.app/' AppDir/perms.desktop
+  cp icon/batch_Page\ 1.png AppDir/org.perms.app.png
+  cp icon/batch_Page\ 1.png AppDir/perms.png
+  cp icon/batch_Page\ 1.png AppDir/.DirIcon
   
   cat > AppDir/AppRun << 'APPRUN'
   #!/bin/bash
@@ -70,8 +37,8 @@ AppDir:
   app_info:
     id: org.perms.app
     name: perms
-    icon: perms
-    version: 0.1.0
+    icon: org.perms.app
+    version: 0.2.0
     exec: usr/bin/perms
     exec_args: $@
   apt:
@@ -97,6 +64,7 @@ AppDir:
       - libgirepository1.0-dev
       - perl
       - python3
+      - sed
     exclude:
       - humanity-icon-theme
       - hicolor-icon-theme

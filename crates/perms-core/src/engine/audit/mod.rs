@@ -77,11 +77,7 @@ impl AuditEngine {
     }
 
     /// Run all rules across a slice of entries.
-    pub fn check_all(
-        &self,
-        entries: &[PathEntry],
-        ctx: &AuditContext<'_>,
-    ) -> Vec<AuditFinding> {
+    pub fn check_all(&self, entries: &[PathEntry], ctx: &AuditContext<'_>) -> Vec<AuditFinding> {
         entries.iter().flat_map(|e| self.check(e, ctx)).collect()
     }
 }

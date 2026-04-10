@@ -122,7 +122,10 @@ pub fn classify_sensitive(path: &PathBuf) -> Option<SensitiveLabel> {
     } else {
         return None;
     };
-    Some(SensitiveLabel { label: label.to_string(), severity })
+    Some(SensitiveLabel {
+        label: label.to_string(),
+        severity,
+    })
 }
 
 #[cfg(test)]
